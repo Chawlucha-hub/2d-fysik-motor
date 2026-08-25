@@ -9,7 +9,9 @@ internal static class Program
     [System.STAThread]
     public static void Main()
     {
-        Raylib.InitWindow(800, 480, "Hello, World");
+        int x = 800;
+        int y = 480;
+        Raylib.InitWindow(x, y, "Hello, World");
 
         while (!Raylib.WindowShouldClose())
         {
@@ -17,7 +19,7 @@ internal static class Program
             Raylib.ClearBackground(Color.White);
 
             Raylib.DrawText("Hello, world!", 12, 12, 20, Color.Black);
-            Raylib.DrawCircle(400, 240, 80, Color.DarkPurple);
+            Raylib.DrawCircle(x/2, y/2, 80, Color.DarkPurple);
 
             Raylib.EndDrawing();
         }
