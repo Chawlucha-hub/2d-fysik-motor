@@ -17,6 +17,7 @@ internal static class Program
             Raylib.ClearBackground(Color.White);
 
             Raylib.DrawText("Hello, world!", 12, 12, 20, Color.Black);
+            Raylib.DrawCircle(400, 240, 80, Color.DarkPurple);
 
             Raylib.EndDrawing();
         }
