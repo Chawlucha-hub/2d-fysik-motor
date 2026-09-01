@@ -34,7 +34,7 @@ internal static class Program
                 PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f);
                 newBall.Restitution = 0.75f; // Studsighet
 
-                // Ge den en liten slumpmässig knuff i X-led
+                // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
                 newBall.Velocity = new Vector2D(rng.Next(-200, 200), rng.Next(-100, 50));
             }
 
