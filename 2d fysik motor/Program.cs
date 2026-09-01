@@ -9,10 +9,10 @@ internal static class Program
     [System.STAThread]
     public static void Main()
     {
-        int screenWidth = 800;
-        int screenHeight = 480;
+        int screenWidth = 1910;
+        int screenHeight = 900;
         Raylib.InitWindow(screenWidth, screenHeight, "Fysikmotor - Skapa objekt med musen");
-        Raylib.SetTargetFPS(60);
+        Raylib.SetTargetFPS(240);
 
         // Skapa fysikvärlden
         WorldPhysics world = new WorldPhysics();
@@ -29,13 +29,15 @@ internal static class Program
                 // Hämta muspositionen
                 float mouseX = Raylib.GetMouseX();
                 float mouseY = Raylib.GetMouseY();
+                for (int i = 1; i < 10; i++)
+                {
+                    // Skapa objektet i motorn
+                    PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f);
+                    newBall.Restitution = 0.75f; // Studsighet
 
-                // Skapa objektet i motorn
-                PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f);
-                newBall.Restitution = 0.75f; // Studsighet
-
-                // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                newBall.Velocity = new Vector2D(rng.Next(-200, 200), rng.Next(-100, 50));
+                    // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
+                    newBall.Velocity = new Vector2D(0, 0);
+                }
             }
 
             // --- FYSISK STEG ---
