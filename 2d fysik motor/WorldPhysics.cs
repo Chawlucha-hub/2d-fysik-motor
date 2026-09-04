@@ -110,7 +110,7 @@ namespace _2d_fysik_motor
 
                 if (!b.IsStatic)
                 {
-                    b.Position -= correction * b.InverseMass;
+                    b.Position += correction * b.InverseMass;
                 }
             }
 
