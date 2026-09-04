@@ -13,18 +13,19 @@ namespace _2d_fysik_motor
         public Vector2D Gravity { get; set; } = new Vector2D(0, 980f); // Standard-gravitation
 
         // Lägg till ett nytt objekt i motorn
-        public PhysicsObject AddBody(Vector2D position, float mass)
+        public PhysicsObject AddBody(Vector2D position, float mass, float radius, ObjectType objectType)
         {
-            PhysicsObject body = new PhysicsObject(position, mass);
+            PhysicsObject body = new PhysicsObject(position, mass, radius, objectType);
             Bodies.Add(body);
             return body;
         }
 
         // Uppdatera alla objekt i världen
-        public void Step(float deltaTime, float screenWidth, float screenHeight, float radius)
+        public void Step(float deltaTime, float screenWidth, float screenHeight)
         {
             foreach (var body in Bodies)
             {
+                float radius = body.radius;
                 // 1. Lägg på gravitation
                 body.AddForce(Gravity * body.Mass);
 
@@ -42,9 +43,9 @@ namespace _2d_fysik_motor
                 {
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
-                    if (CheckCollider(a, b, radius))
+                    if (CheckCollider(a, b, a.radius))
                     {
-                        ResolveCollision(a, b, radius);
+                        ResolveCollision(a, b, a.radius);
                     }
                 }
             }

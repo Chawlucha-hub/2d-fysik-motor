@@ -6,6 +6,11 @@ using System.Threading.Tasks;
 
 namespace _2d_fysik_motor
 {
+    public enum ObjectType
+    {
+        Ball,
+        Box
+    }
     public struct Vector2D
     {
         public float X;
@@ -59,14 +64,18 @@ namespace _2d_fysik_motor
         public float InverseMass { get; private set; } // Används för prestanda (1 / Mass)
         public float Restitution { get; set; } = 0.8f; // Bounciness (0 = inga studsar, 1 = perfekt studs)
         public bool IsStatic => InverseMass == 0f;     // Om objektet är obevägligt (t.ex. ett golv)
+        public ObjectType objectType { get; set; }
+        public float radius = 20f;
 
-        public PhysicsObject(Vector2D position , float mass)
+        public PhysicsObject(Vector2D position , float mass, float? radius, ObjectType newObjectType)
         {
             // gör väderna anvendbara
             Position = position;
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
+            this.radius = (float)radius;
+            objectType = newObjectType;
         }
         public void SetMass(float mass)
         {

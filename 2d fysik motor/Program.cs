@@ -12,12 +12,11 @@ internal static class Program
         int screenWidth = 1910;
         int screenHeight = 900;
         Raylib.InitWindow(screenWidth, screenHeight, "Fysikmotor - Skapa objekt med musen");
-        Raylib.SetTargetFPS(240);
+        Raylib.SetTargetFPS(1000);
 
         // Skapa fysikvärlden
         WorldPhysics world = new WorldPhysics();
         Random rng = new Random();
-        float ballRadius = 20f;
 
         while (!Raylib.WindowShouldClose())
         {
@@ -32,7 +31,7 @@ internal static class Program
                 //for (int i = 1; i < 10; i++)
                 {
                     // Skapa objektet i motorn
-                    PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f);
+                    PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, 20f, ObjectType.Ball);
                     newBall.Restitution = 0.75f; // Studsighet
 
                     // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
@@ -41,7 +40,7 @@ internal static class Program
             }
 
             // --- FYSISK STEG ---
-            world.Step(deltaTime, screenWidth, screenHeight, ballRadius);
+            world.Step(deltaTime, screenWidth, screenHeight);
 
             // --- RITA (VISUALISERING) ---
             Raylib.BeginDrawing();
@@ -53,7 +52,17 @@ internal static class Program
             // Loopa igenom motorns alla objekt och rita dem på skärmen
             foreach (var body in world.Bodies)
             {
-                Raylib.DrawCircle((int)body.Position.X, (int)body.Position.Y, ballRadius, Color.DarkPurple);
+                int bodyPositionX = (int)body.Position.X;
+                int bodyPositionY = (int)body.Position.Y;
+                switch (body.objectType) { 
+                    case ObjectType.Ball:
+                        Raylib.DrawCircle(bodyPositionX, bodyPositionY, 20f, Color.DarkPurple);
+                        break;
+                    case ObjectType.Box:
+                        Raylib.DrawRectangle(bodyPositionX, bodyPositionY, 20, 20, Color.DarkPurple);
+                        break;
+                }
+
 
                 // Rita en liten linje som visar hastighetsriktningen (Visualisering!)
                 Raylib.DrawLine(
