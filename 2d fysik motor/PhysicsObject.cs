@@ -67,7 +67,9 @@ namespace _2d_fysik_motor
         public ObjectType objectType { get; set; }
         public float radius = 20f;
 
-        public PhysicsObject(Vector2D position , float mass, float? radius, ObjectType newObjectType)
+        public float Friction { get; private set; }
+
+        public PhysicsObject(Vector2D position , float mass, float friction, float? radius, ObjectType newObjectType)
         {
             // gör väderna anvendbara
             Position = position;
@@ -76,6 +78,11 @@ namespace _2d_fysik_motor
             ForceAccumulator = Vector2D.Zero;
             this.radius = (float)radius;
             objectType = newObjectType;
+            SetFriction(friction);          
+        }
+        public void SetFriction(float friction)
+        {
+            Friction = friction;
         }
         public void SetMass(float mass)
         {

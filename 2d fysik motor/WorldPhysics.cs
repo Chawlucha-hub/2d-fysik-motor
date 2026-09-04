@@ -13,9 +13,9 @@ namespace _2d_fysik_motor
         public Vector2D Gravity { get; set; } = new Vector2D(0, 980f); // Standard-gravitation
 
         // Lägg till ett nytt objekt i motorn
-        public PhysicsObject AddBody(Vector2D position, float mass, float radius, ObjectType objectType)
+        public PhysicsObject AddBody(Vector2D position, float mass,float friction, float radius, ObjectType objectType)
         {
-            PhysicsObject body = new PhysicsObject(position, mass, radius, objectType);
+            PhysicsObject body = new PhysicsObject(position, mass, friction, radius, objectType);
             Bodies.Add(body);
             return body;
         }
