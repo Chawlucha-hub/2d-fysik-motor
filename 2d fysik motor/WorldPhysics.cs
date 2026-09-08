@@ -90,7 +90,10 @@ namespace _2d_fysik_motor
         }
         private void ResolveCollision(PhysicsObject a, PhysicsObject b, float radius)
         {
-            float frition = a.Friction + b.Friction;
+            // läeger til frition
+            float frition = a.Friction * b.Friction;
+
+
             Vector2D normal = b.Position - a.Position;
             float distance = normal.Length();
             if (distance == 0)
@@ -129,7 +132,9 @@ namespace _2d_fysik_motor
             if (velocityAlongNormal > 0)
                 return;
 
-            float restitution = MathF.Min(a.Restitution, b.Restitution)/frition;
+            float restitution = MathF.Min(a.Restitution, b.Restitution)/ velocityAlongNormal * -frition;
+            // gör att den inte balar ur när friton är över 1
+            
 
             float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
 
