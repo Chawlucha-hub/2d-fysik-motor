@@ -82,7 +82,7 @@ namespace _2d_fysik_motor
         }
         public void SetFriction(float friction)
         {
-            Friction = friction;
+            Friction = MathF.Max(0f, friction);
         }
         public void SetMass(float mass)
         {
