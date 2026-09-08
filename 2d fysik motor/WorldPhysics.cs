@@ -51,15 +51,21 @@ namespace _2d_fysik_motor
             }
         }
 
-        private bool CheckCollider(PhysicsObject a, PhysicsObject b, float radius)
+        private bool CheckCollider(PhysicsObject a, PhysicsObject b, float? radius)
         {
             Vector2D difference = b.Position - a.Position;
 
             float distance = difference.Length();
 
-            return distance <= radius * 2f;
+            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+            {
+                return distance <= radius * 2f;
+            }
+            else
+            {
+                return distance <= radius; // radius blir width eller något vet inte fan
+            }
         }
-
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
         {
@@ -135,5 +141,4 @@ namespace _2d_fysik_motor
                 b.Velocity += impulse * b.InverseMass;
         }
     }
-
 }
