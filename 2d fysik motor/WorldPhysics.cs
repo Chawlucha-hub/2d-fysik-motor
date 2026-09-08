@@ -128,10 +128,7 @@ namespace _2d_fysik_motor
 
             float restitution = MathF.Min(a.Restitution, b.Restitution)/ velocityAlongNormal * -frition;
             // gör att den inte balar ur när friton är över 1
-            if (restitution >= 1 || restitution < 0)
-            {
-                return;
-            }
+            
 
             float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
 
