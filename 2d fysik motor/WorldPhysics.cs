@@ -42,12 +42,121 @@ namespace _2d_fysik_motor
                 {
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
-                    if (CheckCollider(a, b, a.radius))
+                    if (CheckCollider(a, b))
                     {
-                        ResolveCollision(a, b, a.radius);
+                        ResolveCollision(a, b);
                     }
                 }
             }
+        }
+
+        private void ResolveBallCollision(PhysicsObject a, PhysicsObject b)
+        {
+            float friction = a.Friction * b.Friction;
+
+            Vector2D normal = b.Position - a.Position;
+            float distance = normal.Length();
+
+            if (distance == 0)
+            {
+                normal = new Vector2D(1, 0);
+                distance = 0.001f;
+            }
+            else
+            {
+                normal = normal / distance;
+            }
+
+            float penetration = a.radius + b.radius - distance;
+
+            float totalInverseMass = a.InverseMass + b.InverseMass;
+
+            if (totalInverseMass > 0)
+            {
+                Vector2D correction = normal * (penetration / totalInverseMass);
+
+                if (!a.IsStatic)
+                    a.Position -= correction * a.InverseMass;
+
+                if (!b.IsStatic)
+                    b.Position += correction * b.InverseMass;
+            }
+
+            Vector2D relativeVelocity = b.Velocity - a.Velocity;
+
+            float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
+
+            if (velocityAlongNormal > 0)
+                return;
+
+            float restitution = MathF.Min(a.Restitution, b.Restitution);
+
+            float impulseMagnitude =
+                -(1f + restitution) * velocityAlongNormal / totalInverseMass;
+
+            Vector2D impulse = normal * impulseMagnitude;
+
+            if (!a.IsStatic)
+                a.Velocity -= impulse * a.InverseMass;
+
+            if (!b.IsStatic)
+                b.Velocity += impulse * b.InverseMass;
+        }
+
+        private void ResolveBoxCollision(PhysicsObject a, PhysicsObject b)
+        {
+            float dx = b.Position.X - a.Position.X;
+            float dy = b.Position.Y - a.Position.Y;
+
+            float overlapX = a.radius + b.radius - MathF.Abs(dx);
+            float overlapY = a.radius + b.radius - MathF.Abs(dy);
+
+            if (overlapX <= 0 || overlapY <= 0)
+                return;
+
+            Vector2D normal;
+
+            if(overlapX < overlapY)
+            {
+                normal = new Vector2D(MathF.Sign(dx), 0);
+            }
+            else
+            {
+                normal = new Vector2D(0, MathF.Sign(dy));
+            }
+
+            float penetration = MathF.Min(overlapX, overlapY);
+            float totalInverseMass = a.InverseMass + b.InverseMass;
+
+            if (totalInverseMass <= 0)
+                return;
+
+            Vector2D correction = normal * (penetration / totalInverseMass);
+
+            if (!a.IsStatic)
+                a.Position -= correction * a.InverseMass;
+
+            if (!b.IsStatic)
+                b.Position += correction * b.InverseMass;
+
+            Vector2D relativeVelocity = b.Velocity - a.Velocity;
+
+            float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
+
+            if (velocityAlongNormal > 0)
+                return;
+
+            float restitution = MathF.Min(a.Restitution, b.Restitution);
+
+            float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
+
+            Vector2D impulse = normal * impulseMagnitude;
+
+            if (!a.IsStatic)
+                a.Velocity -= impulse * a.InverseMass;
+
+            if (!b.IsStatic)
+                b.Velocity += impulse * b.InverseMass;
         }
 
         public void DrawObjects()
@@ -121,91 +230,6 @@ namespace _2d_fysik_motor
             {
                 body.Position.X = width - radius * 2f;
                 body.Velocity.X *= -body.Restitution;
-            }
-        }
-
-        private void ResolveCollision(PhysicsObject a, PhysicsObject b, float radius)
-        {
-
-            // läeger til frition
-            float frition = a.Friction * b.Friction;
-
-            Vector2D normal = b.Position - a.Position;
-            float distance = normal.Length();
-
-            if (distance == 0)
-            {
-                normal = new Vector2D(1, 0);
-                distance = 0.001f;
-            }
-            else
-            {
-                normal = normal / distance;
-            }
-
-            // 1. Separera objekten om de överlappar (Positionskorrigering)
-            float combinedRadius = a.radius + b.radius;
-            float penetration = combinedRadius - distance;
-            float totalInverseMass = a.InverseMass + b.InverseMass;
-
-            if (totalInverseMass > 0 && penetration > 0)
-            {
-                Vector2D correction = normal * (penetration / totalInverseMass);
-
-                if (!a.IsStatic) a.Position -= correction * a.InverseMass;
-                if (!b.IsStatic) b.Position += correction * b.InverseMass;
-            }
-
-            // 2. Beräkna relativ hastighet
-            Vector2D relativeVelocity = b.Velocity - a.Velocity;
-            float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
-
-            // Om objekten rör sig ifrån varandra redan, gör ingenting
-            if (velocityAlongNormal > 0)
-                return;
-
-            // 3. Normalimpuls (Studs / Restitution)
-            float e = MathF.Min(a.Restitution, b.Restitution);
-            float j = -(1f + e) * velocityAlongNormal / totalInverseMass;
-
-            Vector2D impulse = normal * j;
-
-            if (!a.IsStatic) a.Velocity -= impulse * a.InverseMass;
-            if (!b.IsStatic) b.Velocity += impulse * b.InverseMass;
-
-            // 4. Friktionsimpuls (Längs tangenten)
-            // Uppdatera relativ hastighet efter studsen
-            relativeVelocity = b.Velocity - a.Velocity;
-
-            // Beräkna tangentvektorn (vinkelrät mot normalen)
-            Vector2D tangent = relativeVelocity - (normal * Vector2D.Dot(relativeVelocity, normal));
-            float tangentLength = tangent.Length();
-
-            if (tangentLength > 0.0001f)
-            {
-                tangent = tangent / tangentLength; // Normalisera
-
-                float friction = MathF.Sqrt(a.Friction * b.Friction);
-
-                // Beräkna teoretisk friktionsimpuls för att stoppa glidning
-                float jt = -Vector2D.Dot(relativeVelocity, tangent) / totalInverseMass;
-
-                // Coulombs friktionslag
-                Vector2D frictionImpulse;
-                if (MathF.Abs(jt) < j * friction)
-                {
-                    // Statisk friktion
-                    frictionImpulse = tangent * jt;
-                }
-                else
-                {
-                    // Dynamisk friktion
-                    frictionImpulse = tangent * (-j * friction);
-                }
-
-                // Tillämpa friktionsimpulsen
-                if (!a.IsStatic) a.Velocity -= frictionImpulse * a.InverseMass;
-                if (!b.IsStatic) b.Velocity += frictionImpulse * b.InverseMass;
             }
         }
     }
