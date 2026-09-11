@@ -31,11 +31,9 @@ namespace _2d_fysik_motor
 
                 // 2. Uppdatera position och hastighet
                 body.Update(deltaTime);
-
+                
                 // 3. Enkel vägg- och golvkollision för skärmkanterna
                 HandleScreenBoundaries(body, screenWidth, screenHeight, radius);
-
-              
             }
             for (int i = 0; i < Bodies.Count; i++)
             {
@@ -51,48 +49,84 @@ namespace _2d_fysik_motor
             }
         }
 
+        public void DrawObjects()
+        {
+            // Loopa igenom motorns alla objekt och rita dem på skärmen
+            foreach (var body in Bodies)
+            {
+                int bodyPositionX = (int)body.Position.X;
+                int bodyPositionY = (int)body.Position.Y;
+                switch (body.objectType)
+                {
+                    case ObjectType.Ball:
+                        Raylib.DrawCircle(bodyPositionX, bodyPositionY, body.radius, Color.DarkPurple);
+                        break;
+                    case ObjectType.Box:
+                        
+                        Raylib.DrawRectangle(bodyPositionX, bodyPositionY, (int)body.radius * 2, (int)body.radius * 2, Color.DarkPurple);
+                        break;
+                }
+
+
+                // Rita en liten linje som visar hastighetsriktningen (Visualisering!)
+                Raylib.DrawLine(
+                    (int)body.Position.X,
+                    (int)body.Position.Y,
+                    (int)(body.Position.X + body.Velocity.X * 0.1f),
+                    (int)(body.Position.Y + body.Velocity.Y * 0.1f),
+                    Color.Green
+                );
+            }
+        }
+
         private bool CheckCollider(PhysicsObject a, PhysicsObject b, float? radius)
         {
-            Vector2D difference = b.Position - a.Position;
-
-            float distance = difference.Length();
-
-            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+            if(a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
             {
-                return distance <= radius * 2f;
+                Vector2D difference = b.Position - a.Position;
+                float distance = difference.Length();
+
+                return distance <= a.radius + b.radius;
             }
-            else
+
+            if(a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
             {
-                return distance <= radius; // radius blir width eller något vet inte fan
+                float aHalf = a.radius;
+                float bHalf = a.radius;
+
+                return MathF.Abs(a.Position.X - b.Position.X) <= aHalf + bHalf && MathF.Abs(a.Position.Y - b.Position.Y) <= aHalf + bHalf;
             }
+
+            return false;
+           
         }
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
         {
             // Golv
-            if (body.Position.Y >= height - radius)
+            if (body.Position.Y >= height - radius * 2f)
             {
-                body.Position.Y = height - radius;
+                body.Position.Y = height - radius * 2f;
                 body.Velocity.Y *= -body.Restitution;
             }
             // Vänster vägg
-            if (body.Position.X <= radius)
+            if (body.Position.X <= radius * 2f)
             {
-                body.Position.X = radius;
+                body.Position.X = radius * 2f;
                 body.Velocity.X *= -body.Restitution;
             }
             // Höger vägg
-            if (body.Position.X >= width - radius)
+            if (body.Position.X >= width - radius * 2f)
             {
-                body.Position.X = width - radius;
+                body.Position.X = width - radius * 2f;
                 body.Velocity.X *= -body.Restitution;
             }
         }
+
         private void ResolveCollision(PhysicsObject a, PhysicsObject b, float radius)
         {
             // läeger til frition
             float frition = a.Friction * b.Friction;
-
 
             Vector2D normal = b.Position - a.Position;
             float distance = normal.Length();

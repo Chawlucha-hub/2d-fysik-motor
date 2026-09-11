@@ -23,19 +23,22 @@ internal static class Program
             float deltaTime = Raylib.GetFrameTime();
 
             // --- INPUT: Skapa objekt vid vänsterklick ---
-           // if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+            if (Raylib.IsMouseButtonPressed(MouseButton.Left))
             {
                 // Hämta muspositionen
                 float mouseX = Raylib.GetMouseX();
                 float mouseY = Raylib.GetMouseY();
                 //for (int i = 1; i < 10; i++)
                 {
-                    // Skapa objektet i motorn
-PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f , 20f, ObjectType.Ball);
-                    newBall.Restitution = 0.75f; // Studsighet
+                    //for(int x=0;x<10;x++)
+                    {
+                        // Skapa objektet i motorn
+                        PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, radius: 15f, ObjectType.Box);
+                        newBall.Restitution = 0.75f; // Studsighet
 
-                    // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                    newBall.Velocity = new Vector2D(0, 0);
+                        // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
+                        newBall.Velocity = new Vector2D(0, 0);
+                    }
                 }
             }
 
@@ -49,30 +52,7 @@ PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, 
             Raylib.DrawText("Vänsterklicka för att skapa nya fysikobjekt!", 12, 12, 20, Color.DarkGray);
             Raylib.DrawText($"Antal objekt: {world.Bodies.Count}", 12, 35, 18, Color.Maroon);
 
-            // Loopa igenom motorns alla objekt och rita dem på skärmen
-            foreach (var body in world.Bodies)
-            {
-                int bodyPositionX = (int)body.Position.X;
-                int bodyPositionY = (int)body.Position.Y;
-                switch (body.objectType) { 
-                    case ObjectType.Ball:
-                        Raylib.DrawCircle(bodyPositionX, bodyPositionY, 20f, Color.DarkPurple);
-                        break;
-                    case ObjectType.Box:
-                        Raylib.DrawRectangle(bodyPositionX, bodyPositionY, 20, 20, Color.DarkPurple);
-                        break;
-                }
-
-
-                // Rita en liten linje som visar hastighetsriktningen (Visualisering!)
-                Raylib.DrawLine(
-                    (int)body.Position.X,
-                    (int)body.Position.Y,
-                    (int)(body.Position.X + body.Velocity.X * 0.1f),
-                    (int)(body.Position.Y + body.Velocity.Y * 0.1f),
-                    Color.Green
-                );
-            }
+            world.DrawObjects();
 
             Raylib.EndDrawing();
         }

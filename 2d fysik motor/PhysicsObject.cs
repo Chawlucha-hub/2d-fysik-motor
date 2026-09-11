@@ -27,8 +27,6 @@ namespace _2d_fysik_motor
         public static Vector2D operator -(Vector2D a, Vector2D b) => new Vector2D(a.X - b.X, a.Y - b.Y);
         public static Vector2D operator *(Vector2D a, float scalar) => new Vector2D(a.X * scalar, a.Y * scalar);
         public static Vector2D operator /(Vector2D a, float scalar) { return new Vector2D(a.X / scalar, a.Y / scalar); }
-
-
         public float Length()
         {
             return MathF.Sqrt(X * X + Y * Y);
@@ -43,16 +41,13 @@ namespace _2d_fysik_motor
             }
             return this / length;
         }
+
         public static float Dot(Vector2D a, Vector2D b)
         {
             return a.X * b.X + a.Y * b.Y;
         }
         public static Vector2D Zero => new Vector2D(0, 0);
     }
-
-
-
-
     public class PhysicsObject
     {
         // egenskaper
@@ -111,7 +106,5 @@ namespace _2d_fysik_motor
             // Nollställ krafter inför nästa bildruta
             ForceAccumulator = Vector2D.Zero;
         }
-
-
     }
 }
