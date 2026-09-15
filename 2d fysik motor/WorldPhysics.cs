@@ -46,100 +46,19 @@ namespace _2d_fysik_motor
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
                     
-                    if (CheckCollider(a, b))
+                    if (TryGetCollision(a, b, out Vector2D normal, out float penetration))
                     {
-                        if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
-                        {
-                            ResolveBallCollision(a, b);
-                        }
-                        else if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
-                        {
-                            ResolveBoxCollision(a, b);
-                        }
+                        ResolveCollision(a, b, normal, penetration);
                     }
                 }
             }
         }
 
-        private void ResolveBallCollision(PhysicsObject a, PhysicsObject b)
+       
+       
+
+        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration)
         {
-            float friction = a.Friction * b.Friction;
-
-            Vector2D normal = b.Position - a.Position;
-            float distance = normal.Length();
-
-            if (distance == 0)
-            {
-                normal = new Vector2D(1, 0);
-                distance = 0.001f;
-            }
-            else
-            {
-                normal = normal / distance;
-            }
-
-            float ar = a.radius ?? 0f;
-            float br = b.radius ?? 0f;
-
-            float penetration = ar + br - distance;
-
-            float totalInverseMass = a.InverseMass + b.InverseMass;
-
-            if (totalInverseMass > 0)
-            {
-                Vector2D correction = normal * (penetration / totalInverseMass);
-
-                if (!a.IsStatic)
-                    a.Position -= correction * a.InverseMass;
-
-                if (!b.IsStatic)
-                    b.Position += correction * b.InverseMass;
-            }
-
-            Vector2D relativeVelocity = b.Velocity - a.Velocity;
-
-            float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
-
-            if (velocityAlongNormal > 0)
-                return;
-
-            float restitution = MathF.Min(a.Restitution, b.Restitution);
-
-            float impulseMagnitude =
-                -(1f + restitution) * velocityAlongNormal / totalInverseMass;
-
-            Vector2D impulse = normal * impulseMagnitude;
-
-            if (!a.IsStatic)
-                a.Velocity -= impulse * a.InverseMass;
-
-            if (!b.IsStatic)
-                b.Velocity += impulse * b.InverseMass;
-        }
-
-        private void ResolveBoxCollision(PhysicsObject a, PhysicsObject b)
-        {
-            float dx = b.Position.X - a.Position.X;
-            float dy = b.Position.Y - a.Position.Y;
-
-            float overlapX = a.HalfWidth + b.HalfWidth - MathF.Abs(dx);
-            float overlapY = a.HalfHeight + b.HalfHeight - MathF.Abs(dy);
-
-            if (overlapX <= 0 || overlapY <= 0)
-                return;
-
-            Vector2D normal;
-
-            if (overlapX < overlapY)
-            {
-                normal = new Vector2D(dx == 0 ? 1 : MathF.Sign(dx), 0);
-            }
-            else
-            {
-                normal = new Vector2D(0, dy == 0 ? 1 : MathF.Sign(dy));
-            }
-
-            float penetration = MathF.Min(overlapX, overlapY);
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
             if (totalInverseMass <= 0)
@@ -205,17 +124,23 @@ namespace _2d_fysik_motor
             }
         }
 
-        private bool CheckCollider(PhysicsObject a, PhysicsObject b)
+        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration)
         {
+            normal = Vector2D.Zero;
+            penetration = 0f;
+
             if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
             {
                 Vector2D difference = b.Position - a.Position;
                 float distance = difference.Length();
+                float combinedRadius = a.radius.GetValueOrDefault() + b.radius.GetValueOrDefault();
 
-                float ar = a.radius ?? 0f;
-                float br = b.radius ?? 0f;
+                if (distance >= combinedRadius)
+                    return false;
 
-                return distance <= ar + br;
+                normal = distance == 0f ? new Vector2D(1f, 0f) : difference / distance;
+                penetration = combinedRadius - distance;
+                return true;
             }
 
             if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
@@ -223,10 +148,64 @@ namespace _2d_fysik_motor
                 float overlapX = a.HalfWidth + b.HalfWidth - MathF.Abs(a.Position.X - b.Position.X);
                 float overlapY = a.HalfHeight + b.HalfHeight - MathF.Abs(a.Position.Y - b.Position.Y);
 
-                return overlapX >= 0f && overlapY >= 0f;
+                if (overlapX <= 0f || overlapY <= 0f)
+                    return false;
+
+                if (overlapX < overlapY)
+                {
+                    float direction = b.Position.X - a.Position.X;
+                    normal = new Vector2D(direction == 0f ? 1f : MathF.Sign(direction), 0f);
+                    penetration = overlapX;
+                }
+                else
+                {
+                    float direction = b.Position.Y - a.Position.Y;
+                    normal = new Vector2D(0f, direction == 0f ? 1f : MathF.Sign(direction));
+                    penetration = overlapY;
+                }
+
+                return true;
             }
 
-            return false;
+            PhysicsObject ball = a.objectType == ObjectType.Ball ? a : b;
+            PhysicsObject box = a.objectType == ObjectType.Box ? a : b;
+
+            Vector2D closestPoint = new Vector2D(
+                Math.Clamp(ball.Position.X, box.Position.X - box.HalfWidth, box.Position.X + box.HalfWidth),
+                Math.Clamp(ball.Position.Y, box.Position.Y - box.HalfHeight, box.Position.Y + box.HalfHeight));
+            Vector2D boxToBall = ball.Position - closestPoint;
+            float distanceToBox = boxToBall.Length();
+            float ballRadius = ball.radius.GetValueOrDefault();
+
+            if (distanceToBox >= ballRadius)
+                return false;
+
+            if (distanceToBox > 0f)
+            {
+                boxToBall /= distanceToBox;
+                penetration = ballRadius - distanceToBox;
+            }
+            else
+            {
+                float distanceToVerticalSide = box.HalfWidth - MathF.Abs(ball.Position.X - box.Position.X);
+                float distanceToHorizontalSide = box.HalfHeight - MathF.Abs(ball.Position.Y - box.Position.Y);
+
+                if (distanceToVerticalSide < distanceToHorizontalSide)
+                {
+                    float direction = ball.Position.X - box.Position.X;
+                    boxToBall = new Vector2D(direction == 0f ? 1f : MathF.Sign(direction), 0f);
+                    penetration = ballRadius + distanceToVerticalSide;
+                }
+                else
+                {
+                    float direction = ball.Position.Y - box.Position.Y;
+                    boxToBall = new Vector2D(0f, direction == 0f ? 1f : MathF.Sign(direction));
+                    penetration = ballRadius + distanceToHorizontalSide;
+                }
+            }
+
+            normal = a.objectType == ObjectType.Ball ? boxToBall * -1f : boxToBall;
+            return true;
         }
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)

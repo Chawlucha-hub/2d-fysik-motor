@@ -91,6 +91,7 @@ namespace _2d_fysik_motor
             else if(newObjectType == ObjectType.Ball)
             {
                 this.radius = (float)radius;
+
             }
 
             objectType = newObjectType;
