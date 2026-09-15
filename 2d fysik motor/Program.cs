@@ -33,11 +33,11 @@ internal static class Program
                     //for(int x=0;x<10;x++)
                     {
                         // Skapa objektet i motorn
-                        PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, radius: 15f, ObjectType.Box);
-                        newBall.Restitution = 0.75f; // Studsighet
+                        PhysicsObject newBox = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Box);
+                        newBox.Restitution = 0.75f; // Studsighet
 
                         // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                        newBall.Velocity = new Vector2D(0, 0);
+                        newBox.Velocity = new Vector2D(0, 0);
                     }
                 }
             }

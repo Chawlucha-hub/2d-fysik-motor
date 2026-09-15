@@ -14,9 +14,9 @@ namespace _2d_fysik_motor
         public Vector2D Gravity { get; set; } = new Vector2D(0, 980f); // Standard-gravitation
 
         // Lägg till ett nytt objekt i motorn
-        public PhysicsObject AddBody(Vector2D position, float mass,float friction, float radius, ObjectType objectType)
+        public PhysicsObject AddBody(Vector2D position, float mass,float friction, float? radius, float? width, float? height, ObjectType objectType)
         {
-            PhysicsObject body = new PhysicsObject(position, mass, friction, radius, objectType);
+            PhysicsObject body = new PhysicsObject(position, mass, friction, radius, width, height, objectType);
             Bodies.Add(body);
             return body;
         }
@@ -26,7 +26,10 @@ namespace _2d_fysik_motor
         {
             foreach (var body in Bodies)
             {
-                float radius = body.radius;
+                // Choose a non-null radius: prefer explicit radius, else use the larger of width/height,
+                // else fall back to 0
+                float radius = body.BoundingRadius;
+
                 // 1. Lägg på gravitation
                 body.AddForce(Gravity * body.Mass);
 
@@ -42,9 +45,17 @@ namespace _2d_fysik_motor
                 {
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
+                    
                     if (CheckCollider(a, b))
                     {
-                        ResolveCollision(a, b);
+                        if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+                        {
+                            ResolveBallCollision(a, b);
+                        }
+                        else if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
+                        {
+                            ResolveBoxCollision(a, b);
+                        }
                     }
                 }
             }
@@ -67,7 +78,10 @@ namespace _2d_fysik_motor
                 normal = normal / distance;
             }
 
-            float penetration = a.radius + b.radius - distance;
+            float ar = a.radius ?? 0f;
+            float br = b.radius ?? 0f;
+
+            float penetration = ar + br - distance;
 
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
@@ -108,21 +122,21 @@ namespace _2d_fysik_motor
             float dx = b.Position.X - a.Position.X;
             float dy = b.Position.Y - a.Position.Y;
 
-            float overlapX = a.radius + b.radius - MathF.Abs(dx);
-            float overlapY = a.radius + b.radius - MathF.Abs(dy);
+            float overlapX = a.HalfWidth + b.HalfWidth - MathF.Abs(dx);
+            float overlapY = a.HalfHeight + b.HalfHeight - MathF.Abs(dy);
 
             if (overlapX <= 0 || overlapY <= 0)
                 return;
 
             Vector2D normal;
 
-            if(overlapX < overlapY)
+            if (overlapX < overlapY)
             {
-                normal = new Vector2D(MathF.Sign(dx), 0);
+                normal = new Vector2D(dx == 0 ? 1 : MathF.Sign(dx), 0);
             }
             else
             {
-                normal = new Vector2D(0, MathF.Sign(dy));
+                normal = new Vector2D(0, dy == 0 ? 1 : MathF.Sign(dy));
             }
 
             float penetration = MathF.Min(overlapX, overlapY);
@@ -161,7 +175,6 @@ namespace _2d_fysik_motor
 
         public void DrawObjects()
         {
-            // Loopa igenom motorns alla objekt och rita dem på skärmen
             foreach (var body in Bodies)
             {
                 int bodyPositionX = (int)body.Position.X;
@@ -169,16 +182,19 @@ namespace _2d_fysik_motor
                 switch (body.objectType)
                 {
                     case ObjectType.Ball:
-                        Raylib.DrawCircle(bodyPositionX, bodyPositionY, body.radius, Color.DarkPurple);
+                        int circleRadius = (int)(body.radius ?? 0f);
+                        Raylib.DrawCircle(bodyPositionX, bodyPositionY, circleRadius, Color.DarkPurple);
                         break;
                     case ObjectType.Box:
-                        
-                        Raylib.DrawRectangle(bodyPositionX, bodyPositionY, (int)body.radius * 2, (int)body.radius * 2, Color.DarkPurple);
+                        Raylib.DrawRectangle(
+                            (int)(body.Position.X - body.HalfWidth),
+                            (int)(body.Position.Y - body.HalfHeight),
+                            (int)(body.HalfWidth * 2f),
+                            (int)(body.HalfHeight * 2f),
+                            Color.DarkPurple);
                         break;
                 }
 
-
-                // Rita en liten linje som visar hastighetsriktningen (Visualisering!)
                 Raylib.DrawLine(
                     (int)body.Position.X,
                     (int)body.Position.Y,
@@ -189,46 +205,51 @@ namespace _2d_fysik_motor
             }
         }
 
-        private bool CheckCollider(PhysicsObject a, PhysicsObject b, float? radius)
+        private bool CheckCollider(PhysicsObject a, PhysicsObject b)
         {
-            if(a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
             {
                 Vector2D difference = b.Position - a.Position;
                 float distance = difference.Length();
 
-                return distance <= a.radius + b.radius;
+                float ar = a.radius ?? 0f;
+                float br = b.radius ?? 0f;
+
+                return distance <= ar + br;
             }
 
-            if(a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
+            if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
             {
-                float aHalf = a.radius;
-                float bHalf = a.radius;
+                float overlapX = a.HalfWidth + b.HalfWidth - MathF.Abs(a.Position.X - b.Position.X);
+                float overlapY = a.HalfHeight + b.HalfHeight - MathF.Abs(a.Position.Y - b.Position.Y);
 
-                return MathF.Abs(a.Position.X - b.Position.X) <= aHalf + bHalf && MathF.Abs(a.Position.Y - b.Position.Y) <= aHalf + bHalf;
+                return overlapX >= 0f && overlapY >= 0f;
             }
 
             return false;
-           
         }
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
         {
+            float halfWidth = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfWidth;
+            float halfHeight = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfHeight;
+
             // Golv
-            if (body.Position.Y >= height - radius * 2f)
+            if (body.Position.Y >= height - halfHeight)
             {
-                body.Position.Y = height - radius * 2f;
+                body.Position.Y = height - halfHeight;
                 body.Velocity.Y *= -body.Restitution;
             }
             // Vänster vägg
-            if (body.Position.X <= radius * 2f)
+            if (body.Position.X <= halfWidth)
             {
-                body.Position.X = radius * 2f;
+                body.Position.X = halfWidth;
                 body.Velocity.X *= -body.Restitution;
             }
             // Höger vägg
-            if (body.Position.X >= width - radius * 2f)
+            if (body.Position.X >= width - halfWidth)
             {
-                body.Position.X = width - radius * 2f;
+                body.Position.X = width - halfWidth;
                 body.Velocity.X *= -body.Restitution;
             }
         }

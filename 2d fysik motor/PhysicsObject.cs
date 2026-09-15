@@ -60,18 +60,39 @@ namespace _2d_fysik_motor
         public float Restitution { get; set; } = 0.8f; // Bounciness (0 = inga studsar, 1 = perfekt studs)
         public bool IsStatic => InverseMass == 0f;     // Om objektet är obevägligt (t.ex. ett golv)
         public ObjectType objectType { get; set; }
-        public float radius = 20f;
+        public float? radius = 20f;
+        public float? width = 20f;
+        public float? height = 20f;
 
         public float Friction { get; private set; }
 
-        public PhysicsObject(Vector2D position , float mass, float friction, float? radius, ObjectType newObjectType)
+        public float HalfWidth => width.GetValueOrDefault() / 2f;
+        public float HalfHeight => height.GetValueOrDefault() / 2f;
+
+        // Radien från objektets centrum till boxens hörn.
+        // För en boll är radien den vanliga cirkelradien.
+        public float BoundingRadius => objectType == ObjectType.Ball
+            ? radius.GetValueOrDefault()
+            : MathF.Sqrt(HalfWidth * HalfWidth + HalfHeight * HalfHeight);
+
+        public PhysicsObject(Vector2D position , float mass, float friction, float? radius, float? width, float? height, ObjectType newObjectType)
         {
             // gör väderna anvendbara
             Position = position;
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
-            this.radius = (float)radius;
+
+            if(newObjectType == ObjectType.Box)
+            {
+                this.height = height;
+                this.width = width;
+            }
+            else if(newObjectType == ObjectType.Ball)
+            {
+                this.radius = (float)radius;
+            }
+
             objectType = newObjectType;
             SetFriction(friction);          
         }
