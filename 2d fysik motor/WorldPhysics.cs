@@ -59,6 +59,9 @@ namespace _2d_fysik_motor
 
         private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration)
         {
+
+            float friktonkofisient = (a.Friction + b.Friction) / 2;
+
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
             if (totalInverseMass <= 0)
@@ -74,6 +77,8 @@ namespace _2d_fysik_motor
 
             Vector2D relativeVelocity = b.Velocity - a.Velocity;
 
+            Vector2D frition = (relativeVelocity + Gravity) * friktonkofisient;
+
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
 
             if (velocityAlongNormal > 0)
@@ -83,7 +88,7 @@ namespace _2d_fysik_motor
 
             float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
 
-            Vector2D impulse = normal * impulseMagnitude;
+            Vector2D impulse = normal * impulseMagnitude - frition;
 
             if (!a.IsStatic)
                 a.Velocity -= impulse * a.InverseMass;
