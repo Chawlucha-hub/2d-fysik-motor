@@ -77,7 +77,7 @@ namespace _2d_fysik_motor
 
             Vector2D relativeVelocity = b.Velocity - a.Velocity;
 
-            Vector2D frition = (relativeVelocity + Gravity) * friktonkofisient;
+            
 
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
 
@@ -88,13 +88,40 @@ namespace _2d_fysik_motor
 
             float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
 
-            Vector2D impulse = normal * impulseMagnitude - frition;
+            Vector2D impulse = normal * impulseMagnitude;
 
             if (!a.IsStatic)
                 a.Velocity -= impulse * a.InverseMass;
 
             if (!b.IsStatic)
                 b.Velocity += impulse * b.InverseMass;
+
+            Vector2D relativinpulsPosColition = b.Velocity - a.Velocity;
+
+            Vector2D tangent = new Vector2D(-normal.Y, normal.X);
+
+            float velosetyalongtanhent = Vector2D.Dot(relativinpulsPosColition, tangent);
+
+            float frictioInpulsmangnetud = -velosetyalongtanhent / totalInverseMass;
+
+            float maxfricion = impulseMagnitude * friktonkofisient;
+
+            if (frictioInpulsmangnetud > maxfricion)
+            {
+                frictioInpulsmangnetud = maxfricion;
+            }
+            else if (frictioInpulsmangnetud < -maxfricion)
+            {
+                frictioInpulsmangnetud = -maxfricion;
+            }
+
+            Vector2D friktionInpuls = tangent * frictioInpulsmangnetud;
+
+            if (!a.IsStatic)
+                a.Velocity -= friktionInpuls * a.InverseMass;
+
+            if (!b.IsStatic)
+                b.Velocity += friktionInpuls * b.InverseMass;
         }
 
         public void DrawObjects()
