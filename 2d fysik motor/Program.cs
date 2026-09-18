@@ -1,6 +1,7 @@
-﻿using System;
-using _2d_fysik_motor;
+﻿using _2d_fysik_motor;
 using Raylib_cs;
+using System;
+using System.Threading;
 
 namespace _2d_fysik_motor;
 
@@ -21,13 +22,14 @@ internal static class Program
         while (!Raylib.WindowShouldClose())
         {
             float deltaTime = Raylib.GetFrameTime();
+            float mouseX = Raylib.GetMouseX();
+            float mouseY = Raylib.GetMouseY();
 
             // --- INPUT: Skapa objekt vid vänsterklick ---
-            if (Raylib.IsMouseButtonPressed(MouseButton.Left))
+            if (Raylib.IsKeyPressed(KeyboardKey.E))
             {
                 // Hämta muspositionen
-                float mouseX = Raylib.GetMouseX();
-                float mouseY = Raylib.GetMouseY();
+               
                 //for (int i = 1; i < 10; i++)
                 {
                     //for(int x=0;x<10;x++)
@@ -38,17 +40,20 @@ internal static class Program
 
                         // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
                         newBox.Velocity = new Vector2D(0, 0);
-
-
-                        // Skapa objektet i motorn
-                        PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Ball);
-                        newBall.Restitution = 0.75f; // Studsighet
-
-                        // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                        newBall.Velocity = new Vector2D(0, 0);
                     }
                 }
             }
+
+            if (Raylib.IsKeyPressed(KeyboardKey.Q))
+            {
+                // Skapa objektet i motorn
+                PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Ball);
+                newBall.Restitution = 0.75f; // Studsighet
+
+                // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
+                newBall.Velocity = new Vector2D(0, 0);
+            }
+                
 
             // --- FYSISK STEG ---
             world.Step(deltaTime, screenWidth, screenHeight);
