@@ -65,6 +65,10 @@ namespace _2d_fysik_motor
         public float? radius = 20f;
         public float? width = 20f;
         public float? height = 20f;
+        public float AngularVelocity { get; set; } = 0f; // Hur snabbt objektet snurrar just nu
+        public float Rotation { get; set; } = 0f;        // Objektets nuvarande vinkel i radianer
+        public float InverseInertia { get; private set; } // 1 dividerat med tröghetsmomentet
+
 
         public float Friction { get; private set; }
 
@@ -84,7 +88,7 @@ namespace _2d_fysik_motor
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
-            AngulerVeloscity = Vector2D.Zero;
+            
 
             if (newObjectType == ObjectType.Box)
             {
@@ -128,8 +132,40 @@ namespace _2d_fysik_motor
             // Integrera position: p = p + v * dt
             Position += Velocity * deltaTime;
 
+            // rotation
+            Rotation += AngularVelocity * (180f / MathF.PI) * deltaTime;
+
             // Nollställ krafter inför nästa bildruta
             ForceAccumulator = Vector2D.Zero;
+            // --- Din befintliga kod för InverseMass ---
+            if (IsStatic || Mass <= 0f)
+            {
+                InverseMass = 0f;
+                InverseInertia = 0f; // Statiska objekt kan inte snurra av krockar
+            }
+            else
+            {
+                InverseMass = 1f / Mass;
+
+                // RÄKNA UT TRÖGHETSMOMENTET (INERTIA)
+                float inertia = 0f;
+
+                if (objectType == ObjectType.Ball)
+                {
+                    float r = radius.GetValueOrDefault(0f);
+                    inertia = 0.5f * Mass * (r * r);
+                }
+                else if (objectType == ObjectType.Box)
+                {
+                    float w = width.GetValueOrDefault(0f);
+                    float h = height.GetValueOrDefault(0f);
+                    inertia = (1f / 12f) * Mass * (w * w + h * h);
+                }
+
+                // Sätt det inversa värdet (om trögheten är 0 blir inversen också 0)
+                InverseInertia = inertia > 0f ? 1f / inertia : 0f;
+            }
+
         }
     }
 }

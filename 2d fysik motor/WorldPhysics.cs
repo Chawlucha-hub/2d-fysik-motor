@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
@@ -60,7 +61,8 @@ namespace _2d_fysik_motor
         private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint, Vector2D AngulerVeloscity)
         {
 
-            float friktonkofisient = (a.Friction + b.Friction) / 2;
+            float friktonkofisient = (a.Friction + b.Friction) / 2f;
+            
 
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
@@ -68,6 +70,8 @@ namespace _2d_fysik_motor
                 return;
 
             Vector2D correction = normal * (penetration / totalInverseMass);
+            if (!a.IsStatic) a.Position -= correction * a.InverseMass;
+            if (!b.IsStatic) b.Position += correction * b.InverseMass;
 
             Vector2D rA = contactPoint - a.Position;
             Vector2D rB = contactPoint - b.Position;
@@ -76,30 +80,36 @@ namespace _2d_fysik_motor
             Vector2D VelocityB = b.Velocity + new Vector2D(-b.AngulerVeloscity.Y * rB.Y, b.AngulerVeloscity.X * rB.X);
             Vector2D relativeVelocity = VelocityB - VelocityA;
 
+
+            float rnA = rA.X * normal.Y - rA.Y * normal.X;
+            float rnB = rB.X * normal.Y - rB.Y * normal.X;
+           
+            float totalInverseMassNormal = a.InverseMass + b.InverseMass +
+                               (rnA * rnA * a.InverseInertia) +
+                               (rnB * rnB * b.InverseInertia);
+
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
 
-            if (velocityAlongNormal > 0)
+            if (velocityAlongNormal > -0.5f)
                 return;
 
             float restitution = MathF.Min(a.Restitution, b.Restitution);
 
-            float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMass;
+            float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMassNormal;
 
             Vector2D impulse = normal * impulseMagnitude;
 
-            if (!a.IsStatic)
-                a.Velocity -= impulse * a.InverseMass;
-
-            if (!b.IsStatic)
-                b.Velocity += impulse * b.InverseMass;
-
-            Vector2D relativinpulsPosColition = b.Velocity - a.Velocity;
+            Vector2D relativinpulsPosColition = VelocityB - VelocityA;
 
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
 
             float velosetyalongtanhent = Vector2D.Dot(relativinpulsPosColition, tangent);
 
-            float frictioInpulsmangnetud = -velosetyalongtanhent / totalInverseMass;
+            float rtA = rA.X * tangent.Y - rA.Y * tangent.X;
+            float rtB = rB.X * tangent.Y - rB.Y * tangent.X;
+            float totalInverseMassTangent = a.InverseMass + b.InverseMass + (rtA * rtA * a.InverseInertia) + (rtB * rtB * b.InverseInertia);
+
+            float frictioInpulsmangnetud = -velosetyalongtanhent / totalInverseMassTangent;
 
             float maxfricion = impulseMagnitude * friktonkofisient;
 
@@ -114,13 +124,35 @@ namespace _2d_fysik_motor
 
             Vector2D friktionInpuls = tangent * frictioInpulsmangnetud;
 
-            
+            a.AngularVelocity = Math.Clamp(a.AngularVelocity, -10f, 10f);
+            b.AngularVelocity = Math.Clamp(b.AngularVelocity, -10f, 10f);
 
             if (!a.IsStatic)
-                a.Velocity -= friktionInpuls * a.InverseMass;
+            {
+                a.Velocity -= (impulse + friktionInpuls) * a.InverseMass;
+                if (MathF.Abs(normal.Y) > 0.9f)
+                {
+                    a.AngularVelocity = 0f;
+                    b.AngularVelocity = 0f;
+                }
+
+                a.AngularVelocity -= (rA.X * impulse.Y - rA.Y * impulse.X) * a.InverseInertia;
+                a.AngularVelocity -= (rA.X * friktionInpuls.Y - rA.Y * friktionInpuls.X) * a.InverseInertia;
+            }
 
             if (!b.IsStatic)
-                b.Velocity += friktionInpuls * b.InverseMass;
+            {
+                b.Velocity += (impulse + friktionInpuls) * b.InverseMass;
+                if (MathF.Abs(normal.Y) > 0.9f)
+                {
+                    a.AngularVelocity = 0f;
+                    b.AngularVelocity = 0f;
+                }
+
+                b.AngularVelocity += (rB.X * impulse.Y - rB.Y * impulse.X) * b.InverseInertia;
+                b.AngularVelocity += (rB.X * friktionInpuls.Y - rB.Y * friktionInpuls.X) * b.InverseInertia;
+            }
+                
 
         }
 
@@ -137,12 +169,26 @@ namespace _2d_fysik_motor
                         Raylib.DrawCircle(bodyPositionX, bodyPositionY, circleRadius, Color.DarkPurple);
                         break;
                     case ObjectType.Box:
-                        Raylib.DrawRectangle(
-                            (int)(body.Position.X - body.HalfWidth),
-                            (int)(body.Position.Y - body.HalfHeight),
-                            (int)(body.HalfWidth * 2f),
-                            (int)(body.HalfHeight * 2f),
-                            Color.DarkPurple);
+
+                        Rectangle rectangle = new Rectangle(
+                            body.Position.X,
+                            body.Position.Y,
+                            body.HalfWidth * 2f,
+                            body.HalfHeight * 2f
+                        );
+
+                        Vector2 origin = new Vector2(
+                            body.HalfWidth,
+                            body.HalfHeight
+                        );
+
+                        Raylib.DrawRectanglePro(
+                            rectangle,
+                            origin,
+                            body.Rotation * (180f / MathF.PI),
+                            Color.DarkPurple
+                        );
+
                         break;
                 }
 
@@ -160,8 +206,9 @@ namespace _2d_fysik_motor
         {
             normal = Vector2D.Zero;
             penetration = 0f;
-            contactPoint = Vector2D.Zero;
             AngulerVeloscity = Vector2D.Zero;
+            contactPoint = Vector2D.Zero;
+            
 
             if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
             {
@@ -174,31 +221,13 @@ namespace _2d_fysik_motor
 
                 normal = distance == 0f ? new Vector2D(1f, 0f) : difference / distance;
                 penetration = combinedRadius - distance;
+
                 return true;
             }
 
             if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
             {
-                float overlapX = a.HalfWidth + b.HalfWidth - MathF.Abs(a.Position.X - b.Position.X);
-                float overlapY = a.HalfHeight + b.HalfHeight - MathF.Abs(a.Position.Y - b.Position.Y);
-
-                if (overlapX <= 0f || overlapY <= 0f)
-                    return false;
-
-                if (overlapX < overlapY)
-                {
-                    float direction = b.Position.X - a.Position.X;
-                    normal = new Vector2D(direction == 0f ? 1f : MathF.Sign(direction), 0f);
-                    penetration = overlapX;
-                }
-                else
-                {
-                    float direction = b.Position.Y - a.Position.Y;
-                    normal = new Vector2D(0f, direction == 0f ? 1f : MathF.Sign(direction));
-                    penetration = overlapY;
-                }
-
-                return true;
+                return TryGetBoxBoxCollision(a, b, out normal, out penetration, out contactPoint);
             }
 
             PhysicsObject ball = a.objectType == ObjectType.Ball ? a : b;
@@ -239,11 +268,164 @@ namespace _2d_fysik_motor
             }
 
             normal = a.objectType == ObjectType.Ball ? boxToBall * -1f : boxToBall;
+            contactPoint = CalculateContactPointUniversal(a, b, normal);
+            return true;   
+        }
+
+
+        private bool TryGetBoxBoxCollision( PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
+        {
+            normal = Vector2D.Zero;
+            penetration = float.MaxValue;
+            contactPoint = Vector2D.Zero;
+
+            Vector2D[] cornersA = GetBoxCorners(a);
+            Vector2D[] cornersB = GetBoxCorners(b);
+
+            Vector2D[] axes =
+            {
+                GetBoxAxis(a, 0),
+                GetBoxAxis(a, 1),
+                GetBoxAxis(b, 0),
+                GetBoxAxis(b, 1)
+            };
+
+            foreach (Vector2D axis in axes)
+            {
+                ProjectBox(cornersA, axis, out float minA, out float maxA);
+                ProjectBox(cornersB, axis, out float minB, out float maxB);
+
+                float overlap =
+                    MathF.Min(maxA, maxB) -
+                    MathF.Max(minA, minB);
+
+                if (overlap <= 0f)
+                    return false;
+
+                if (overlap < penetration)
+                {
+                    penetration = overlap;
+
+                    normal = axis;
+
+                    // Se till att normalen pekar från A mot B
+                    Vector2D centerDifference = b.Position - a.Position;
+
+                    if (Vector2D.Dot(normal, centerDifference) < 0f)
+                    {
+                        normal *= -1f;
+                    }
+                }
+            }
+
+            // Hitta ungefärlig riktig kontaktpunkt
+            Vector2D pointA = GetSupportPoint(cornersA, normal);
+
+            Vector2D oppositeNormal = new Vector2D( -normal.X, -normal.Y);
+
+            Vector2D pointB = GetSupportPoint(cornersB, oppositeNormal);
+
+            contactPoint = (pointA + pointB) * 0.5f;
+
             return true;
+        }
+
+        private void ProjectBox(Vector2D[] corners, Vector2D axis, out float min, out float max)
+        {
+            min = Vector2D.Dot(corners[0], axis);
+            max = min;
+
+            for (int i = 1; i < corners.Length; i++)
+            {
+                float projection =
+                    Vector2D.Dot(corners[i], axis);
+
+                if (projection < min)
+                    min = projection;
+
+                if (projection > max)
+                    max = projection;
+            }
+        }
+
+        private Vector2D GetBoxAxis(PhysicsObject body, int index)
+        {
+            float angle =
+                body.Rotation * (MathF.PI / 180f);
+
+            float cos = MathF.Cos(angle);
+            float sin = MathF.Sin(angle);
+
+            if (index == 0)
+            {
+                return new Vector2D(cos, sin);
+            }
+            else
+            {
+                return new Vector2D(-sin, cos);
+            }
+        }
+
+        private Vector2D[] GetBoxCorners(PhysicsObject body)
+        {
+            float angle =
+                body.Rotation * (MathF.PI / 180f);
+
+            float cos = MathF.Cos(angle);
+            float sin = MathF.Sin(angle);
+
+            Vector2D[] localCorners =
+            {
+                new Vector2D(-body.HalfWidth, -body.HalfHeight),
+                new Vector2D( body.HalfWidth, -body.HalfHeight),
+                new Vector2D( body.HalfWidth,  body.HalfHeight),
+                new Vector2D(-body.HalfWidth,  body.HalfHeight)
+            };
+
+            Vector2D[] worldCorners = new Vector2D[4];
+
+            for (int i = 0; i < 4; i++)
+            {
+                float x = localCorners[i].X;
+                float y = localCorners[i].Y;
+
+                worldCorners[i] =
+                    new Vector2D(
+                        body.Position.X + x * cos - y * sin,
+                        body.Position.Y + x * sin + y * cos
+                    );
+            }
+
+            return worldCorners;
+        }
+
+        private Vector2D GetSupportPoint(
+    Vector2D[] corners,
+    Vector2D direction)
+        {
+            Vector2D bestPoint = corners[0];
+
+            float bestValue =
+                Vector2D.Dot(bestPoint, direction);
+
+            for (int i = 1; i < corners.Length; i++)
+            {
+                float value =
+                    Vector2D.Dot(corners[i], direction);
+
+                if (value > bestValue)
+                {
+                    bestValue = value;
+                    bestPoint = corners[i];
+                }
+            }
+
+            return bestPoint;
         }
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
         {
+
             float halfWidth = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfWidth;
             float halfHeight = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfHeight;
 
@@ -266,15 +448,28 @@ namespace _2d_fysik_motor
                 body.Velocity.X *= -body.Restitution;
             }
         }
-        public Vector2D CalculateContactPointUniversal(PhysicsObject a, PhysicsObject b, Vector2D normal)
+        public Vector2D CalculateContactPointUniversal(
+     PhysicsObject a,
+     PhysicsObject b,
+     Vector2D normal)
         {
-            // Hitta punkten på A:s kant i normalens riktning
-            Vector2D pointA = a.Position + normal * a.BoundingRadius;
+            float distanceA;
 
-            // Hitta punkten på B:s kant i motsatt riktning (-normal)
-            Vector2D pointB = b.Position - normal * b.BoundingRadius;
+            if (MathF.Abs(normal.X) > MathF.Abs(normal.Y))
+                distanceA = a.HalfWidth;
+            else
+                distanceA = a.HalfHeight;
 
-            // Ta medelvärdet (mitten) av dessa två punkter
+            float distanceB;
+
+            if (MathF.Abs(normal.X) > MathF.Abs(normal.Y))
+                distanceB = b.HalfWidth;
+            else
+                distanceB = b.HalfHeight;
+
+            Vector2D pointA = a.Position + normal * distanceA;
+            Vector2D pointB = b.Position - normal * distanceB;
+
             return (pointA + pointB) * 0.5f;
         }
 
