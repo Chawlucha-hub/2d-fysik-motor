@@ -54,6 +54,8 @@ namespace _2d_fysik_motor
         public Vector2D Position;
         public Vector2D Velocity;
         public Vector2D ForceAccumulator;
+        public Vector2D AngulerVeloscity;
+        public Vector2D contactPoint;
 
         public float Mass { get; private set; }
         public float InverseMass { get; private set; } // Används för prestanda (1 / Mass)
@@ -82,8 +84,9 @@ namespace _2d_fysik_motor
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
+            AngulerVeloscity = Vector2D.Zero;
 
-            if(newObjectType == ObjectType.Box)
+            if (newObjectType == ObjectType.Box)
             {
                 this.height = height;
                 this.width = width;
