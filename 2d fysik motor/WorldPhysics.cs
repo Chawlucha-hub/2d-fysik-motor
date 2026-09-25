@@ -448,10 +448,7 @@ namespace _2d_fysik_motor
                 body.Velocity.X *= -body.Restitution;
             }
         }
-        public Vector2D CalculateContactPointUniversal(
-     PhysicsObject a,
-     PhysicsObject b,
-     Vector2D normal)
+        public Vector2D CalculateContactPointUniversal(PhysicsObject a, PhysicsObject b, Vector2D normal)
         {
             float distanceA;
 
