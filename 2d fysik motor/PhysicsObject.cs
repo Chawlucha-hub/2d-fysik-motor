@@ -54,8 +54,6 @@ namespace _2d_fysik_motor
         public Vector2D Position;
         public Vector2D Velocity;
         public Vector2D ForceAccumulator;
-        public Vector2D AngulerVeloscity;
-        public Vector2D contactPoint;
 
         public float Mass { get; private set; }
         public float InverseMass { get; private set; } // Används för prestanda (1 / Mass)
@@ -102,7 +100,8 @@ namespace _2d_fysik_motor
             }
 
             objectType = newObjectType;
-            SetFriction(friction);          
+            SetFriction(friction);
+            UpdateInertia();
         }
         public void SetFriction(float friction)
         {
@@ -113,6 +112,34 @@ namespace _2d_fysik_motor
             Mass = mass;
             // Om massan är 0 räknas det som ett statiskt objekt med oändlig massa
             InverseMass = (mass > 0f) ? 1f / mass : 0f;
+            UpdateInertia();
+        }
+
+        private void UpdateInertia()
+        {
+            if (Mass <= 0f)
+            {
+                InverseMass = 0f;
+                InverseInertia = 0f;
+                return;
+            }
+
+            InverseMass = 1f / Mass;
+            float inertia = 0f;
+
+            if (objectType == ObjectType.Ball)
+            {
+                float r = radius.GetValueOrDefault();
+                inertia = 0.5f * Mass * r * r;
+            }
+            else if (objectType == ObjectType.Box)
+            {
+                float w = width.GetValueOrDefault();
+                float h = height.GetValueOrDefault();
+                inertia = Mass * (w * w + h * h) / 12f;
+            }
+
+            InverseInertia = inertia > 0f ? 1f / inertia : 0f;
         }
         public void AddForce(Vector2D force)
         {
@@ -133,39 +160,10 @@ namespace _2d_fysik_motor
             Position += Velocity * deltaTime;
 
             // rotation
-            Rotation += AngularVelocity * (180f / MathF.PI) * deltaTime;
+            Rotation += AngularVelocity * deltaTime;
 
             // Nollställ krafter inför nästa bildruta
             ForceAccumulator = Vector2D.Zero;
-            // --- Din befintliga kod för InverseMass ---
-            if (IsStatic || Mass <= 0f)
-            {
-                InverseMass = 0f;
-                InverseInertia = 0f; // Statiska objekt kan inte snurra av krockar
-            }
-            else
-            {
-                InverseMass = 1f / Mass;
-
-                // RÄKNA UT TRÖGHETSMOMENTET (INERTIA)
-                float inertia = 0f;
-
-                if (objectType == ObjectType.Ball)
-                {
-                    float r = radius.GetValueOrDefault(0f);
-                    inertia = 0.5f * Mass * (r * r);
-                }
-                else if (objectType == ObjectType.Box)
-                {
-                    float w = width.GetValueOrDefault(0f);
-                    float h = height.GetValueOrDefault(0f);
-                    inertia = (1f / 12f) * Mass * (w * w + h * h);
-                }
-
-                // Sätt det inversa värdet (om trögheten är 0 blir inversen också 0)
-                InverseInertia = inertia > 0f ? 1f / inertia : 0f;
-            }
-
         }
     }
 }

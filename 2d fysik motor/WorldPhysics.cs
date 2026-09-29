@@ -47,9 +47,9 @@ namespace _2d_fysik_motor
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
                     
-                    if (TryGetCollision(a, b, out Vector2D normal, out float penetration, out Vector2D contactPoint, out Vector2D AngulerVeloscity))
+                    if (TryGetCollision(a, b, out Vector2D normal, out float penetration, out Vector2D contactPoint))
                     {
-                        ResolveCollision(a, b, normal, penetration, contactPoint, AngulerVeloscity);
+                        ResolveCollision(a, b, normal, penetration, contactPoint);
                     }
                 }
             }
@@ -58,103 +58,71 @@ namespace _2d_fysik_motor
        
        
 
-        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint, Vector2D AngulerVeloscity)
+        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint)
         {
-
-            float friktonkofisient = (a.Friction + b.Friction) / 2f;
-            
-
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
             if (totalInverseMass <= 0)
                 return;
 
+            Vector2D rA = contactPoint - a.Position;
+            Vector2D rB = contactPoint - b.Position;
+
             Vector2D correction = normal * (penetration / totalInverseMass);
             if (!a.IsStatic) a.Position -= correction * a.InverseMass;
             if (!b.IsStatic) b.Position += correction * b.InverseMass;
 
-            Vector2D rA = contactPoint - a.Position;
-            Vector2D rB = contactPoint - b.Position;
-
-            Vector2D VelocityA = a.Velocity + new Vector2D(-a.AngulerVeloscity.Y * rA.Y, a.AngulerVeloscity.X * rA.X);
-            Vector2D VelocityB = b.Velocity + new Vector2D(-b.AngulerVeloscity.Y * rB.Y, b.AngulerVeloscity.X * rB.X);
-            Vector2D relativeVelocity = VelocityB - VelocityA;
-
-
-            float rnA = rA.X * normal.Y - rA.Y * normal.X;
-            float rnB = rB.X * normal.Y - rB.Y * normal.X;
-           
-            float totalInverseMassNormal = a.InverseMass + b.InverseMass +
-                               (rnA * rnA * a.InverseInertia) +
-                               (rnB * rnB * b.InverseInertia);
-
+            Vector2D velocityA = a.Velocity + new Vector2D(-a.AngularVelocity * rA.Y, a.AngularVelocity * rA.X);
+            Vector2D velocityB = b.Velocity + new Vector2D(-b.AngularVelocity * rB.Y, b.AngularVelocity * rB.X);
+            Vector2D relativeVelocity = velocityB - velocityA;
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
 
-            if (velocityAlongNormal > -0.5f)
+            if (velocityAlongNormal >= 0f)
+                return;
+
+            float crossNormalA = Cross(rA, normal);
+            float crossNormalB = Cross(rB, normal);
+            float normalDenominator = totalInverseMass +
+                crossNormalA * crossNormalA * a.InverseInertia +
+                crossNormalB * crossNormalB * b.InverseInertia;
+
+            if (normalDenominator <= 0f)
                 return;
 
             float restitution = MathF.Min(a.Restitution, b.Restitution);
-
-            float impulseMagnitude = -(1f + restitution) * velocityAlongNormal / totalInverseMassNormal;
-
-            Vector2D impulse = normal * impulseMagnitude;
-
-            Vector2D relativinpulsPosColition = VelocityB - VelocityA;
+            float normalImpulseMagnitude = -(1f + restitution) * velocityAlongNormal / normalDenominator;
+            Vector2D normalImpulse = normal * normalImpulseMagnitude;
 
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
+            float crossTangentA = Cross(rA, tangent);
+            float crossTangentB = Cross(rB, tangent);
+            float tangentDenominator = totalInverseMass +
+                crossTangentA * crossTangentA * a.InverseInertia +
+                crossTangentB * crossTangentB * b.InverseInertia;
 
-            float velosetyalongtanhent = Vector2D.Dot(relativinpulsPosColition, tangent);
-
-            float rtA = rA.X * tangent.Y - rA.Y * tangent.X;
-            float rtB = rB.X * tangent.Y - rB.Y * tangent.X;
-            float totalInverseMassTangent = a.InverseMass + b.InverseMass + (rtA * rtA * a.InverseInertia) + (rtB * rtB * b.InverseInertia);
-
-            float frictioInpulsmangnetud = -velosetyalongtanhent / totalInverseMassTangent;
-
-            float maxfricion = impulseMagnitude * friktonkofisient;
-
-            if (frictioInpulsmangnetud > maxfricion)
-            {
-                frictioInpulsmangnetud = maxfricion;
-            }
-            else if (frictioInpulsmangnetud < -maxfricion)
-            {
-                frictioInpulsmangnetud = -maxfricion;
-            }
-
-            Vector2D friktionInpuls = tangent * frictioInpulsmangnetud;
-
-            a.AngularVelocity = Math.Clamp(a.AngularVelocity, -10f, 10f);
-            b.AngularVelocity = Math.Clamp(b.AngularVelocity, -10f, 10f);
+            float frictionImpulseMagnitude = tangentDenominator > 0f
+                ? -Vector2D.Dot(relativeVelocity, tangent) / tangentDenominator
+                : 0f;
+            float frictionCoefficient = (a.Friction + b.Friction) / 2f;
+            float maxFrictionImpulse = normalImpulseMagnitude * frictionCoefficient;
+            frictionImpulseMagnitude = Math.Clamp(frictionImpulseMagnitude, -maxFrictionImpulse, maxFrictionImpulse);
+            Vector2D frictionImpulse = tangent * frictionImpulseMagnitude;
+            Vector2D totalImpulse = normalImpulse + frictionImpulse;
 
             if (!a.IsStatic)
             {
-                a.Velocity -= (impulse + friktionInpuls) * a.InverseMass;
-                if (MathF.Abs(normal.Y) > 0.9f)
-                {
-                    a.AngularVelocity = 0f;
-                    b.AngularVelocity = 0f;
-                }
-
-                a.AngularVelocity -= (rA.X * impulse.Y - rA.Y * impulse.X) * a.InverseInertia;
-                a.AngularVelocity -= (rA.X * friktionInpuls.Y - rA.Y * friktionInpuls.X) * a.InverseInertia;
+                a.Velocity -= totalImpulse * a.InverseMass;
+                a.AngularVelocity -= Cross(rA, totalImpulse) * a.InverseInertia;
             }
 
             if (!b.IsStatic)
             {
-                b.Velocity += (impulse + friktionInpuls) * b.InverseMass;
-                if (MathF.Abs(normal.Y) > 0.9f)
-                {
-                    a.AngularVelocity = 0f;
-                    b.AngularVelocity = 0f;
-                }
-
-                b.AngularVelocity += (rB.X * impulse.Y - rB.Y * impulse.X) * b.InverseInertia;
-                b.AngularVelocity += (rB.X * friktionInpuls.Y - rB.Y * friktionInpuls.X) * b.InverseInertia;
+                b.Velocity += totalImpulse * b.InverseMass;
+                b.AngularVelocity += Cross(rB, totalImpulse) * b.InverseInertia;
             }
-                
-
         }
+
+        private static float Cross(Vector2D a, Vector2D b) => a.X * b.Y - a.Y * b.X;
 
         public void DrawObjects()
         {
@@ -202,11 +170,10 @@ namespace _2d_fysik_motor
             }
         }
 
-        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration,out Vector2D contactPoint, out Vector2D AngulerVeloscity)
+        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
         {
             normal = Vector2D.Zero;
             penetration = 0f;
-            AngulerVeloscity = Vector2D.Zero;
             contactPoint = Vector2D.Zero;
             
 
@@ -221,6 +188,7 @@ namespace _2d_fysik_motor
 
                 normal = distance == 0f ? new Vector2D(1f, 0f) : difference / distance;
                 penetration = combinedRadius - distance;
+                contactPoint = a.Position + normal * (a.radius.GetValueOrDefault() - penetration * 0.5f);
 
                 return true;
             }
@@ -247,28 +215,33 @@ namespace _2d_fysik_motor
             {
                 boxToBall /= distanceToBox;
                 penetration = ballRadius - distanceToBox;
+                contactPoint = closestPoint;
             }
             else
             {
                 float distanceToVerticalSide = box.HalfWidth - MathF.Abs(ball.Position.X - box.Position.X);
                 float distanceToHorizontalSide = box.HalfHeight - MathF.Abs(ball.Position.Y - box.Position.Y);
+                float distanceToSide;
 
                 if (distanceToVerticalSide < distanceToHorizontalSide)
                 {
                     float direction = ball.Position.X - box.Position.X;
                     boxToBall = new Vector2D(direction == 0f ? 1f : MathF.Sign(direction), 0f);
                     penetration = ballRadius + distanceToVerticalSide;
+                    distanceToSide = distanceToVerticalSide;
                 }
                 else
                 {
                     float direction = ball.Position.Y - box.Position.Y;
                     boxToBall = new Vector2D(0f, direction == 0f ? 1f : MathF.Sign(direction));
                     penetration = ballRadius + distanceToHorizontalSide;
+                    distanceToSide = distanceToHorizontalSide;
                 }
+
+                contactPoint = ball.Position + boxToBall * distanceToSide;
             }
 
             normal = a.objectType == ObjectType.Ball ? boxToBall * -1f : boxToBall;
-            contactPoint = CalculateContactPointUniversal(a, b, normal);
             return true;   
         }
 
@@ -350,8 +323,7 @@ namespace _2d_fysik_motor
 
         private Vector2D GetBoxAxis(PhysicsObject body, int index)
         {
-            float angle =
-                body.Rotation * (MathF.PI / 180f);
+            float angle = body.Rotation;
 
             float cos = MathF.Cos(angle);
             float sin = MathF.Sin(angle);
@@ -368,8 +340,7 @@ namespace _2d_fysik_motor
 
         private Vector2D[] GetBoxCorners(PhysicsObject body)
         {
-            float angle =
-                body.Rotation * (MathF.PI / 180f);
+            float angle = body.Rotation;
 
             float cos = MathF.Cos(angle);
             float sin = MathF.Sin(angle);
@@ -400,27 +371,29 @@ namespace _2d_fysik_motor
         }
 
         private Vector2D GetSupportPoint(
-    Vector2D[] corners,
-    Vector2D direction)
+            Vector2D[] corners,
+            Vector2D direction)
         {
-            Vector2D bestPoint = corners[0];
-
-            float bestValue =
-                Vector2D.Dot(bestPoint, direction);
-
+            float bestValue = Vector2D.Dot(corners[0], direction);
             for (int i = 1; i < corners.Length; i++)
             {
-                float value =
-                    Vector2D.Dot(corners[i], direction);
-
+                float value = Vector2D.Dot(corners[i], direction);
                 if (value > bestValue)
-                {
                     bestValue = value;
-                    bestPoint = corners[i];
+            }
+
+            Vector2D supportCenter = Vector2D.Zero;
+            int supportCount = 0;
+            for (int i = 0; i < corners.Length; i++)
+            {
+                if (bestValue - Vector2D.Dot(corners[i], direction) <= 0.001f)
+                {
+                    supportCenter += corners[i];
+                    supportCount++;
                 }
             }
 
-            return bestPoint;
+            return supportCenter / supportCount;
         }
 
         private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
