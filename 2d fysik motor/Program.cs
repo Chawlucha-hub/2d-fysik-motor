@@ -19,6 +19,10 @@ internal static class Program
         WorldPhysics world = new WorldPhysics();
         Random rng = new Random();
 
+        PhysicsObject newGoyBox = world.AddBody(new Vector2D(screenWidth / 2, screenHeight / 2), 0f, 0f, 0f, 100f, 30f, ObjectType.Box);
+        //PhysicsObject newGoyBox2 = world.AddBody(new Vector2D(screenWidth / 2, -screenHeight + 100), 0f, 0f, 0f, 10000f, 30f, ObjectType.Box);
+
+
         while (!Raylib.WindowShouldClose())
         {
             float deltaTime = Raylib.GetFrameTime();

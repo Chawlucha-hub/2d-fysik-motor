@@ -27,10 +27,6 @@ namespace _2d_fysik_motor
         {
             foreach (var body in Bodies)
             {
-                // Choose a non-null radius: prefer explicit radius, else use the larger of width/height,
-                // else fall back to 0
-                float radius = body.BoundingRadius;
-
                 // 1. Lägg på gravitation
                 body.AddForce(Gravity * body.Mass);
 
@@ -38,7 +34,7 @@ namespace _2d_fysik_motor
                 body.Update(deltaTime);
                 
                 // 3. Enkel vägg- och golvkollision för skärmkanterna
-                HandleScreenBoundaries(body, screenWidth, screenHeight, radius);
+                HandleScreenBoundaries(body, screenWidth, screenHeight);
             }
             for (int i = 0; i < Bodies.Count; i++)
             {
@@ -396,31 +392,74 @@ namespace _2d_fysik_motor
             return supportCenter / supportCount;
         }
 
-        private void HandleScreenBoundaries(PhysicsObject body, float width, float height, float radius)
+        private void HandleScreenBoundaries(PhysicsObject body, float width, float height)
         {
+            Vector2D[] wallNormals =
+            {
+                new Vector2D(-1f, 0f),
+                new Vector2D(1f, 0f),
+                new Vector2D(0f, -1f),
+                new Vector2D(0f, 1f)
+            };
+            float[] wallOffsets = { 0f, width, 0f, height };
 
-            float halfWidth = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfWidth;
-            float halfHeight = body.objectType == ObjectType.Ball ? body.BoundingRadius : body.HalfHeight;
+            for (int i = 0; i < wallNormals.Length; i++)
+            {
+                Vector2D normal = wallNormals[i];
+                Vector2D supportPoint = body.objectType == ObjectType.Ball
+                    ? body.Position + normal * body.BoundingRadius
+                    : GetSupportPoint(GetBoxCorners(body), normal);
+                float penetration = Vector2D.Dot(supportPoint, normal) - wallOffsets[i];
 
-            // Golv
-            if (body.Position.Y >= height - halfHeight)
-            {
-                body.Position.Y = height - halfHeight;
-                body.Velocity.Y *= -body.Restitution;
-            }
-            // Vänster vägg
-            if (body.Position.X <= halfWidth)
-            {
-                body.Position.X = halfWidth;
-                body.Velocity.X *= -body.Restitution;
-            }
-            // Höger vägg
-            if (body.Position.X >= width - halfWidth)
-            {
-                body.Position.X = width - halfWidth;
-                body.Velocity.X *= -body.Restitution;
+                if (penetration > 0f)
+                    ResolveBoundaryCollision(body, normal, penetration, supportPoint);
             }
         }
+        private void ResolveBoundaryCollision(PhysicsObject body, Vector2D normal, float penetration, Vector2D contactPoint)
+        {
+            if (body.IsStatic)
+                return;
+
+            Vector2D contactOffset = contactPoint - body.Position;
+            body.Position -= normal * penetration;
+
+            Vector2D contactVelocity = body.Velocity + new Vector2D(
+                -body.AngularVelocity * contactOffset.Y,
+                body.AngularVelocity * contactOffset.X);
+            float velocityAlongNormal = Vector2D.Dot(contactVelocity * -1f, normal);
+
+            if (velocityAlongNormal >= 0f)
+                return;
+
+            float angularNormal = Cross(contactOffset, normal);
+            float normalDenominator = body.InverseMass +
+                angularNormal * angularNormal * body.InverseInertia;
+
+            if (normalDenominator <= 0f)
+                return;
+
+            float restitution = -velocityAlongNormal < 30f ? 0f : body.Restitution;
+            float normalImpulseMagnitude = -(1f + restitution) * velocityAlongNormal / normalDenominator;
+            Vector2D normalImpulse = normal * normalImpulseMagnitude;
+
+            Vector2D tangent = new Vector2D(-normal.Y, normal.X);
+            float angularTangent = Cross(contactOffset, tangent);
+            float tangentDenominator = body.InverseMass +
+                angularTangent * angularTangent * body.InverseInertia;
+            float frictionImpulseMagnitude = tangentDenominator > 0f
+                ? -Vector2D.Dot(contactVelocity * -1f, tangent) / tangentDenominator
+                : 0f;
+            float maximumFrictionImpulse = normalImpulseMagnitude * body.Friction;
+            frictionImpulseMagnitude = Math.Clamp(
+                frictionImpulseMagnitude,
+                -maximumFrictionImpulse,
+                maximumFrictionImpulse);
+
+            Vector2D totalImpulse = normalImpulse + tangent * frictionImpulseMagnitude;
+            body.Velocity -= totalImpulse * body.InverseMass;
+            body.AngularVelocity -= Cross(contactOffset, totalImpulse) * body.InverseInertia;
+        }
+
         public Vector2D CalculateContactPointUniversal(PhysicsObject a, PhysicsObject b, Vector2D normal)
         {
             float distanceA;
