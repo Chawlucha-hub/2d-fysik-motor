@@ -168,136 +168,22 @@ namespace _2d_fysik_motor
 
         private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
         {
-            normal = Vector2D.Zero;
-            penetration = 0f;
-            contactPoint = Vector2D.Zero;
+            if (a.objectType == ObjectType.Box)
+            {
+                float? corner1 = (a.Position.X + (a.width / 2f))+ (a.Position.Y + (a.height / 2f));
+                float? corner2 = (a.Position.X + (a.width / 2f)) - (a.Position.Y + (a.height / 2f));
+                float? corner3 = (a.Position.X - (a.width / 2f)) + (a.Position.Y - (a.height / 2f));
+                float? corner4 = (a.Position.X - (a.width / 2f)) - (a.Position.Y - (a.height / 2f));
+
+
+                
+            }
+        
+        }
+
+           
+
             
-
-            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
-            {
-                Vector2D difference = b.Position - a.Position;
-                float distance = difference.Length();
-                float combinedRadius = a.radius.GetValueOrDefault() + b.radius.GetValueOrDefault();
-
-                if (distance >= combinedRadius)
-                    return false;
-
-                normal = distance == 0f ? new Vector2D(1f, 0f) : difference / distance;
-                penetration = combinedRadius - distance;
-                contactPoint = a.Position + normal * (a.radius.GetValueOrDefault() - penetration * 0.5f);
-
-                return true;
-            }
-
-            if (a.objectType == ObjectType.Box && b.objectType == ObjectType.Box)
-            {
-                return TryGetBoxBoxCollision(a, b, out normal, out penetration, out contactPoint);
-            }
-
-            PhysicsObject ball = a.objectType == ObjectType.Ball ? a : b;
-            PhysicsObject box = a.objectType == ObjectType.Box ? a : b;
-
-            Vector2D closestPoint = new Vector2D(
-                Math.Clamp(ball.Position.X, box.Position.X - box.HalfWidth, box.Position.X + box.HalfWidth),
-                Math.Clamp(ball.Position.Y, box.Position.Y - box.HalfHeight, box.Position.Y + box.HalfHeight));
-            Vector2D boxToBall = ball.Position - closestPoint;
-            float distanceToBox = boxToBall.Length();
-            float ballRadius = ball.radius.GetValueOrDefault();
-
-            if (distanceToBox >= ballRadius)
-                return false;
-
-            if (distanceToBox > 0f)
-            {
-                boxToBall /= distanceToBox;
-                penetration = ballRadius - distanceToBox;
-                contactPoint = closestPoint;
-            }
-            else
-            {
-                float distanceToVerticalSide = box.HalfWidth - MathF.Abs(ball.Position.X - box.Position.X);
-                float distanceToHorizontalSide = box.HalfHeight - MathF.Abs(ball.Position.Y - box.Position.Y);
-                float distanceToSide;
-
-                if (distanceToVerticalSide < distanceToHorizontalSide)
-                {
-                    float direction = ball.Position.X - box.Position.X;
-                    boxToBall = new Vector2D(direction == 0f ? 1f : MathF.Sign(direction), 0f);
-                    penetration = ballRadius + distanceToVerticalSide;
-                    distanceToSide = distanceToVerticalSide;
-                }
-                else
-                {
-                    float direction = ball.Position.Y - box.Position.Y;
-                    boxToBall = new Vector2D(0f, direction == 0f ? 1f : MathF.Sign(direction));
-                    penetration = ballRadius + distanceToHorizontalSide;
-                    distanceToSide = distanceToHorizontalSide;
-                }
-
-                contactPoint = ball.Position + boxToBall * distanceToSide;
-            }
-
-            normal = a.objectType == ObjectType.Ball ? boxToBall * -1f : boxToBall;
-            return true;   
-        }
-
-
-        private bool TryGetBoxBoxCollision( PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
-        {
-            normal = Vector2D.Zero;
-            penetration = float.MaxValue;
-            contactPoint = Vector2D.Zero;
-
-            Vector2D[] cornersA = GetBoxCorners(a);
-            Vector2D[] cornersB = GetBoxCorners(b);
-
-            Vector2D[] axes =
-            {
-                GetBoxAxis(a, 0),
-                GetBoxAxis(a, 1),
-                GetBoxAxis(b, 0),
-                GetBoxAxis(b, 1)
-            };
-
-            foreach (Vector2D axis in axes)
-            {
-                ProjectBox(cornersA, axis, out float minA, out float maxA);
-                ProjectBox(cornersB, axis, out float minB, out float maxB);
-
-                float overlap =
-                    MathF.Min(maxA, maxB) -
-                    MathF.Max(minA, minB);
-
-                if (overlap <= 0f)
-                    return false;
-
-                if (overlap < penetration)
-                {
-                    penetration = overlap;
-
-                    normal = axis;
-
-                    // Se till att normalen pekar från A mot B
-                    Vector2D centerDifference = b.Position - a.Position;
-
-                    if (Vector2D.Dot(normal, centerDifference) < 0f)
-                    {
-                        normal *= -1f;
-                    }
-                }
-            }
-
-            // Hitta ungefärlig riktig kontaktpunkt
-            Vector2D pointA = GetSupportPoint(cornersA, normal);
-
-            Vector2D oppositeNormal = new Vector2D( -normal.X, -normal.Y);
-
-            Vector2D pointB = GetSupportPoint(cornersB, oppositeNormal);
-
-            contactPoint = (pointA + pointB) * 0.5f;
-
-            return true;
-        }
 
         private void ProjectBox(Vector2D[] corners, Vector2D axis, out float min, out float max)
         {
