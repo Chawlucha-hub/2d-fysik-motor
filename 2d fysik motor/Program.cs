@@ -34,9 +34,9 @@ internal static class Program
             {
                 // Hämta muspositionen
                
-                //for (int i = 1; i < 10; i++)
+                for (int i = 1; i < 10; i++)
                 {
-                    //for(int x=0;x<10;x++)
+                    for(int x=0;x<10;x++)
                     {
                         // Skapa objektet i motorn
                         PhysicsObject newBox = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Box);
@@ -50,20 +50,32 @@ internal static class Program
 
             if (Raylib.IsKeyPressed(KeyboardKey.Q))
             {
-                // Skapa objektet i motorn
-                PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Ball);
-                newBall.Restitution = 0.75f; // Studsighet
+                for (int i = 1; i < 10; i++)
+                {
+                    for (int x = 0; x < 10; x++)
+                    {
+                        // Skapa objektet i motorn
+                        PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 20f, 20f, ObjectType.Ball);
+                        newBall.Restitution = 0.75f; // Studsighet
 
-                // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                newBall.Velocity = new Vector2D(0, 0);
+                        // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
+                        newBall.Velocity = new Vector2D(0, 0);
+                    }
+                }
             }
             if (Raylib.IsKeyPressed(KeyboardKey.G))
             {
-                PhysicsObject newBox = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 200f, 20f, ObjectType.Box);
-                newBox.Restitution = 0.75f; // Studsighet
+                for (int i = 1; i < 10; i++)
+                {
+                    for (int x = 0; x < 10; x++)
+                    {
+                        PhysicsObject newBox = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 200f, 20f, ObjectType.Box);
+                        newBox.Restitution = 0.75f; // Studsighet
 
-                // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
-                newBox.Velocity = new Vector2D(0, 0);
+                        // Ge den en liten slumpmässig knuff i X-led (borde ändras till 0)
+                        newBox.Velocity = new Vector2D(0, 0);
+                    }
+                }        
             }
                 
 
