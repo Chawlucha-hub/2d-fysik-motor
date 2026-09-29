@@ -73,6 +73,7 @@ namespace _2d_fysik_motor
         public float HalfWidth => width.GetValueOrDefault() / 2f;
         public float HalfHeight => height.GetValueOrDefault() / 2f;
 
+
         // Radien från objektets centrum till boxens hörn.
         // För en boll är radien den vanliga cirkelradien.
         public float BoundingRadius => objectType == ObjectType.Ball
