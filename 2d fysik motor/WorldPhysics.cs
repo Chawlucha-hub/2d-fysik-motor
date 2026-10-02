@@ -170,13 +170,7 @@ namespace _2d_fysik_motor
         {
             if (a.objectType == ObjectType.Box)
             {
-                float? corner1 = (a.Position.X + (a.width / 2f))+ (a.Position.Y + (a.height / 2f));
-                float? corner2 = (a.Position.X + (a.width / 2f)) - (a.Position.Y + (a.height / 2f));
-                float? corner3 = (a.Position.X - (a.width / 2f)) + (a.Position.Y - (a.height / 2f));
-                float? corner4 = (a.Position.X - (a.width / 2f)) - (a.Position.Y - (a.height / 2f));
-
-
-                
+              
             }
         
         }
@@ -220,37 +214,34 @@ namespace _2d_fysik_motor
             }
         }
 
+        
         private Vector2D[] GetBoxCorners(PhysicsObject body)
         {
-            float angle = body.Rotation;
+            float rotation = body.Rotation;
 
-            float cos = MathF.Cos(angle);
-            float sin = MathF.Sin(angle);
+            float cos = MathF.Cos(rotation);
+            float sin = MathF.Sin(rotation);
 
-            Vector2D[] localCorners =
+            float width = body.HalfWidth * 2f;
+            float height = body.HalfHeight * 2f;
+
+            Vector2D corner1 = new Vector2D( body.Position.X + (-width / 2f * cos - -height / 2f * sin), body.Position.Y + (-width / 2f * sin + -height / 2f * cos));
+
+            Vector2D corner2 = new Vector2D(body.Position.X + (width / 2f * cos - -height / 2f * sin),body.Position.Y + (width / 2f * sin + -height / 2f * cos));
+
+            Vector2D corner3 = new Vector2D(body.Position.X + (width / 2f * cos - height / 2f * sin),body.Position.Y + (width / 2f * sin + height / 2f * cos));
+
+            Vector2D corner4 = new Vector2D(body.Position.X + (-width / 2f * cos - height / 2f * sin), body.Position.Y + (-width / 2f * sin + height / 2f * cos));
+
+            return new Vector2D[]
             {
-                new Vector2D(-body.HalfWidth, -body.HalfHeight),
-                new Vector2D( body.HalfWidth, -body.HalfHeight),
-                new Vector2D( body.HalfWidth,  body.HalfHeight),
-                new Vector2D(-body.HalfWidth,  body.HalfHeight)
+            corner1,
+            corner2,
+            corner3,
+            corner4
             };
-
-            Vector2D[] worldCorners = new Vector2D[4];
-
-            for (int i = 0; i < 4; i++)
-            {
-                float x = localCorners[i].X;
-                float y = localCorners[i].Y;
-
-                worldCorners[i] =
-                    new Vector2D(
-                        body.Position.X + x * cos - y * sin,
-                        body.Position.Y + x * sin + y * cos
-                    );
-            }
-
-            return worldCorners;
         }
+        
 
         private Vector2D GetSupportPoint(
             Vector2D[] corners,

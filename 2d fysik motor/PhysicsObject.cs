@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Numerics;
+using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -80,19 +82,29 @@ namespace _2d_fysik_motor
             ? radius.GetValueOrDefault()
             : MathF.Sqrt(HalfWidth * HalfWidth + HalfHeight * HalfHeight);
 
-        public PhysicsObject(Vector2D position , float mass, float friction, float? radius, float? width, float? height, ObjectType newObjectType)
+        public PhysicsObject(Vector2D position , float mass, float friction, float rotation, float? radius, float width, float height, ObjectType newObjectType)
         {
             // gör väderna anvendbara
             Position = position;
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
+            float cos = MathF.Cos(rotation);
+            float sin = MathF.Sin(rotation);
+
+            
+                this.Rotation = rotation;
+
             
 
             if (newObjectType == ObjectType.Box)
             {
                 this.height = height;
                 this.width = width;
+                Vector2 corner1 = new Vector2(Position.X + (width / 2 * cos - height / 2 * sin), Position.Y + (width / 2 * sin + height / 2 * cos));
+                Vector2 corner2 = new Vector2(Position.X - (width / 2 * cos - height / 2 * sin), Position.Y + (width / 2 * sin + height / 2 * cos));
+                Vector2 corner3 = new Vector2(Position.X + (width / 2 * cos - height / 2 * sin), Position.Y - (width / 2 * sin + height / 2 * cos));
+                Vector2 corner4 = new Vector2(Position.X - (width / 2 * cos - height / 2 * sin), Position.Y - (width / 2 * sin + height / 2 * cos));
             }
             else if(newObjectType == ObjectType.Ball)
             {
