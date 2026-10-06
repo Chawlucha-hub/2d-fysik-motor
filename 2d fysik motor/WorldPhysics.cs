@@ -166,13 +166,22 @@ namespace _2d_fysik_motor
             }
         }
 
-        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
+        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint, float BoundingRadius)
         {
             if (a.objectType == ObjectType.Box)
             {
-              
+                Vector2D[] boxCornersA = GetBoxCorners(a);
+                for(int i = 0; i < boxCornersA.Length; i++)
+                {
+                    float cornerDistens = Vector2D.Dot(b.Position, boxCornersA[i]);
+                    
+                  if (cornerDistens <= BoundingRadius)
+                    {
+
+                    }
+                }
             }
-        
+
         }
 
            

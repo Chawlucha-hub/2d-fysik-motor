@@ -101,13 +101,6 @@ namespace _2d_fysik_motor
             {
                 this.height = height;
                 this.width = width;
-                Vector2 corner1 = new Vector2(Position.X + (-width / 2f * cos - -height / 2f * sin),Position.Y + (-width / 2f * sin + -height / 2f * cos));
-
-                Vector2 corner2 = new Vector2(Position.X + (width / 2f * cos - -height / 2f * sin), Position.Y + (width / 2f * sin + -height / 2f * cos));
-
-                Vector2 corner3 = new Vector2( Position.X + (width / 2f * cos - height / 2f * sin),Position.Y + (width / 2f * sin + height / 2f * cos));
-
-                Vector2 corner4 = new Vector2(Position.X + (-width / 2f * cos - height / 2f * sin),Position.Y + (-width / 2f * sin + height / 2f * cos));
             }
             else if(newObjectType == ObjectType.Ball)
             {
