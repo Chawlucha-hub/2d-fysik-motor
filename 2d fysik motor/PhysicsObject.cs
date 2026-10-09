@@ -76,11 +76,40 @@ namespace _2d_fysik_motor
         public float HalfHeight => height.GetValueOrDefault() / 2f;
 
 
-        // Radien från objektets centrum till boxens hörn.
-        // För en boll är radien den vanliga cirkelradien.
-        public float BoundingRadius => objectType == ObjectType.Ball
-            ? radius.GetValueOrDefault()
-            : MathF.Sqrt(HalfWidth * HalfWidth + HalfHeight * HalfHeight);
+        public Vector2D BoundingRadius
+        {
+            get
+            {
+                float cos = MathF.Cos(Rotation);
+                float sin = MathF.Sin(Rotation);
+                return new Vector2D(
+                    MathF.Sqrt(HalfWidth * HalfWidth * cos * cos + HalfHeight * HalfHeight * sin * sin),
+                    MathF.Sqrt(HalfWidth * HalfWidth * sin * sin + HalfHeight * HalfHeight * cos * cos));
+            }
+        }
+
+        public Vector2D[] GetEllipsePoints()
+        {
+            float cos = MathF.Cos(Rotation);
+            float sin = MathF.Sin(Rotation);
+            Vector2D[] localPoints =
+            {
+                new Vector2D(0f, -HalfHeight),
+                new Vector2D(HalfWidth, 0f),
+                new Vector2D(0f, HalfHeight),
+                new Vector2D(-HalfWidth, 0f)
+            };
+
+            for (int i = 0; i < localPoints.Length; i++)
+            {
+                Vector2D point = localPoints[i];
+                localPoints[i] = Position + new Vector2D(
+                    point.X * cos - point.Y * sin,
+                    point.X * sin + point.Y * cos);
+            }
+
+            return localPoints;
+        }
 
         public PhysicsObject(Vector2D position , float mass, float friction, float rotation, float? radius, float width, float height, ObjectType newObjectType)
         {
@@ -104,8 +133,9 @@ namespace _2d_fysik_motor
             }
             else if(newObjectType == ObjectType.Ball)
             {
-                this.radius = (float)radius;
-
+                this.width = width > 0f ? width : radius.GetValueOrDefault() * 2f;
+                this.height = height > 0f ? height : radius.GetValueOrDefault() * 2f;
+                this.radius = radius ?? MathF.Max(this.width.Value, this.height.Value) / 2f;
             }
 
             objectType = newObjectType;
@@ -138,8 +168,9 @@ namespace _2d_fysik_motor
 
             if (objectType == ObjectType.Ball)
             {
-                float r = radius.GetValueOrDefault();
-                inertia = 0.5f * Mass * r * r;
+                float halfWidth = HalfWidth;
+                float halfHeight = HalfHeight;
+                inertia = Mass * (halfWidth * halfWidth + halfHeight * halfHeight) / 4f;
             }
             else if (objectType == ObjectType.Box)
             {
