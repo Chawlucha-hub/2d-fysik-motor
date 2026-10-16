@@ -240,14 +240,40 @@ namespace _2d_fysik_motor
 
             Vector2D[] pointsA = a.objectType == ObjectType.Box ? GetBoxCorners(a) : a.GetEllipsePoints();
             Vector2D[] pointsB = b.objectType == ObjectType.Box ? GetBoxCorners(b) : b.GetEllipsePoints();
-            return TryGetPolygonCollision(pointsA, pointsB, out normal, out penetration, out contactPoint);
+            Vector2D[] CircelpintsA = a.objectType == ObjectType.Ball? GetBoxCorners(a) : a.GetEllipsePoints();
+            Vector2D[] CircelpintsB = b.objectType == ObjectType.Ball ? GetBoxCorners(a) : a.GetEllipsePoints();
+
+            return TryGetPolygonCollision(pointsA, pointsB, CircelpintsA, CircelpintsB, out normal, out penetration, out contactPoint, a, b);
         }
 
-        private bool TryGetPolygonCollision(Vector2D[] pointsA, Vector2D[] pointsB, out Vector2D normal, out float penetration, out Vector2D contactPoint)
+        private bool TryGetPolygonCollision(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D[] CircelpintsA, Vector2D[] CircelpintsB, out Vector2D normal, out float penetration, out Vector2D contactPoint, PhysicsObject a, PhysicsObject b)
         {
             normal = Vector2D.Zero;
             penetration = float.MaxValue;
             contactPoint = Vector2D.Zero;
+            
+            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+            {
+                for (int shape = 0; shape < 2; shape++)
+                {
+                    Vector2D[] Circelpints = shape == 0 ? CircelpintsA : CircelpintsB;
+                    for (int i = 0; i < Circelpints.Length; i++)
+                    {
+                        float dx = CircelpintsA[i+1].X - CircelpintsA[i].X;
+                        float dy = CircelpintsA[i+1].Y - CircelpintsA[i].Y;
+
+                        float diameter = MathF.Sqrt(dx * dx + dy * dy);
+
+                        Vector2D mitpunkt = (CircelpintsA[i] + CircelpintsA[i + 1])/2;
+
+                        
+                    }
+                }
+                   
+
+
+            }
+            
 
             for (int shape = 0; shape < 2; shape++)
             {
