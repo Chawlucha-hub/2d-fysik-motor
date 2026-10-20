@@ -259,14 +259,72 @@ namespace _2d_fysik_motor
                     Vector2D[] Circelpints = shape == 0 ? CircelpintsA : CircelpintsB;
                     for (int i = 0; i < Circelpints.Length; i++)
                     {
-                        float dx = CircelpintsA[i+1].X - CircelpintsA[i].X;
-                        float dy = CircelpintsA[i+1].Y - CircelpintsA[i].Y;
+                        Vector2D AA = Circelpints[i];
+                        Vector2D BA = Circelpints[(i + 1) % Circelpints.Length];
 
-                        float diameter = MathF.Sqrt(dx * dx + dy * dy);
+                        float dxA = BA.X - AA.X;
+                        float dyA = BA.Y - AA.Y;
 
-                        Vector2D mitpunkt = (CircelpintsA[i] + CircelpintsA[i + 1])/2;
+                        float diameterA = MathF.Sqrt(dxA * dxA + dyA * dyA);
 
-                        
+                        if (diameterA < 0.0001f)
+                            continue;
+
+                        Vector2D mitpunktA = (AA + BA) / 2f;
+
+                        // Höjden är proportionell mot avståndet mellan A och B
+                        float kA = 0.25f;
+                        float höjdA = kA * diameterA;
+
+                        // Beräkna cirkelns radie
+                        float radioseA = (diameterA * diameterA ) / (8f * höjdA) + höjdA / 2f;
+
+                        // Normalvektor med längden 1
+                        Vector2D vA = BA - AA;
+                        Vector2D nA = new Vector2D(-vA.Y, vA.X) / diameterA;
+
+                        // Cirkelns centrum
+                        Vector2D CA = mitpunktA + nA * (radioseA - höjdA);
+
+                        // Kontrollera om cirkeln och den andra polygonen kolliderar
+
+                        Vector2D AB = Circelpints[i];
+                        Vector2D BB = Circelpints[(i + 1) % Circelpints.Length];
+
+                        float dxB = BB.X - AB.X;
+                        float dyB = BB.Y - AB.Y;
+
+                        float diameterB = MathF.Sqrt(dxB * dxB + dyB * dyB);
+
+                        if (diameterB < 0.0001f)
+                            continue;
+
+                        Vector2D mitpunktB = (AB + BB) / 2f;
+
+                        // Höjden är proportionell mot avståndet mellan A och B
+                        float kB = 0.25f;
+                        float höjdB = kB * diameterB;
+
+                        // Beräkna cirkelns radie
+                        float radioseB = (diameterB * diameterB) / (8f * höjdB) + höjdB / 2f;
+
+                        // Normalvektor med längden 1
+                        Vector2D vB = BB - AB;
+                        Vector2D nB = new Vector2D(-vB.Y, vB.X) / diameterB;
+
+                        // Cirkelns centrum
+                        Vector2D CB = mitpunktB + nB * (radioseB - höjdB);
+
+                        Vector2D skillnad = CA - CB;
+                        float avstand2 = Vector2D.Dot(skillnad, skillnad);
+
+                        if (avstand2 <= (radioseA + radioseB) * (radioseA + radioseB))
+                        {
+                            // Cirklarna överlappar eller tangerar varandra
+
+                        }
+
+
                     }
                 }
                    
