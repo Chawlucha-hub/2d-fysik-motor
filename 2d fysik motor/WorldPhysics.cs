@@ -440,8 +440,7 @@ namespace _2d_fysik_motor
                     max = projection;
             }
         }
-
-
+        
         private Vector2D[] GetBoxCorners(PhysicsObject body)
         {
             float rotation = body.Rotation;
