@@ -7,7 +7,7 @@ using System.Text;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace _2d_fysik_motor
+namespace _2d_fysik_motor // resseted 1 gång
 {
     internal class WorldPhysics
     {
