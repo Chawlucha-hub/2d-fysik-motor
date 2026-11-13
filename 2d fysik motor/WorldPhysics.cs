@@ -7,38 +7,48 @@ using System.Text;
 using System.Threading.Tasks;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
-namespace _2d_fysik_motor // resseted 1 gång
+namespace _2d_fysik_motor
 {
+    // Hanterar fysikvärldens kroppar, simulering, kollisioner och ritning.
     internal class WorldPhysics
     {
+        // Alla kroppar som ingår i simuleringen.
         public List<PhysicsObject> Bodies { get; } = new List<PhysicsObject>();
+
+        // Gravitationsacceleration i världens koordinater.
         public Vector2D Gravity { get; set; } = new Vector2D(0, 980f); // Standard-gravitation
+
+        // Statiska väggar som håller kropparna inom fönstrets gränser.
         private readonly List<PhysicsObject> _screenWalls = new List<PhysicsObject>();
+
+        // Sparar fönstrets senaste storlek så väggarna bara byggs om vid behov.
         private float _wallScreenWidth = float.NaN;
         private float _wallScreenHeight = float.NaN;
 
-        // Lägg till ett nytt objekt i motorn
+        // Skapar en kropp med nollrotation, lägger till den i världen och returnerar den.
         public PhysicsObject AddBody(Vector2D position, float mass, float friction, float? radius, float? width, float? height, ObjectType objectType)
         {
-            // supply default rotation 0 and unwrap width/height
             PhysicsObject body = new PhysicsObject(position, mass, friction, 0f, radius, width.GetValueOrDefault(), height.GetValueOrDefault(), objectType);
             Bodies.Add(body);
             return body;
         }
 
-        // Uppdatera alla objekt i världen
+        // Stegar fysiken framåt och hanterar kroppskollisioner för en bildruta.
         public void Step(float deltaTime, float screenWidth, float screenHeight)
         {
+            // Säkerställer att de statiska väggarna matchar fönstrets storlek.
             UpdateScreenWalls(screenWidth, screenHeight);
 
+            // Lägg på gravitation och integrera varje kropps rörelse.
             foreach (var body in Bodies)
             {
-                // 1. Lägg på gravitation
+                // Omvandlar gravitationsaccelerationen till kraft med F = m * a.
                 body.AddForce(Gravity * body.Mass);
 
-                // 2. Uppdatera position och hastighet
                 body.Update(deltaTime);
             }
+
+            // Testar varje par av kroppar en gång och löser eventuella kollisioner.
             for (int i = 0; i < Bodies.Count; i++)
             {
                 for (int j = i + 1; j < Bodies.Count; j++)
@@ -53,6 +63,7 @@ namespace _2d_fysik_motor // resseted 1 gång
                 }
             }
 
+            // Testar kropparna mot de statiska väggarna runt fönstret.
             foreach (PhysicsObject body in Bodies)
             {
                 foreach (PhysicsObject wall in _screenWalls)
@@ -63,6 +74,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             }
         }
 
+        // Bygger om de statiska fönsterväggarna när fönstrets storlek ändras.
         private void UpdateScreenWalls(float width, float height)
         {
             if (width == _wallScreenWidth && height == _wallScreenHeight)
@@ -81,6 +93,7 @@ namespace _2d_fysik_motor // resseted 1 gång
 
 
 
+        // Korrigerar överlappning och beräknar kollisionsimpulser med studs och friktion.
         private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint)
         {
             float totalInverseMass = a.InverseMass + b.InverseMass;
@@ -91,10 +104,12 @@ namespace _2d_fysik_motor // resseted 1 gång
             if (Vector2D.Dot(b.Position - a.Position, normal) < 0f)
                 normal *= -1f;
 
+            // Fördelar positionskorrigeringen enligt kropparnas inversa massor.
             Vector2D correction = normal * (penetration / totalInverseMass);
             if (!a.IsStatic) a.Position -= correction * a.InverseMass;
             if (!b.IsStatic) b.Position += correction * b.InverseMass;
 
+            // Kontaktpunktens hastighet inkluderar både rörelse och rotation.
             Vector2D rA = contactPoint - a.Position;
             Vector2D rB = contactPoint - b.Position;
             Vector2D velocityA = GetVelocityAtPoint(a, rA);
@@ -114,6 +129,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             if (normalDenominator <= 0f)
                 return;
 
+            // Dämpar studs vid låga hastigheter för att undvika små, oönskade studs.
             float restitution = MathF.Abs(velocityAlongNormal) < 30f
                 ? 0f
                 : Math.Clamp(MathF.Min(a.Restitution, b.Restitution), 0f, 1f);
@@ -127,6 +143,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             velocityB = GetVelocityAtPoint(b, rB);
             relativeVelocity = velocityB - velocityA;
 
+            // Friktionen verkar längs tangenten och begränsas av normalimpulsens storlek.
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
             float crossTangentA = Cross(rA, tangent);
             float crossTangentB = Cross(rB, tangent);
@@ -146,13 +163,16 @@ namespace _2d_fysik_motor // resseted 1 gång
             ApplyCollisionImpulse(b, 1f, rB, frictionImpulse);
         }
 
+        // Beräknar 2D-kryssprodukten som ett skalärt värde.
         private static float Cross(Vector2D a, Vector2D b) => a.X * b.Y - a.Y * b.X;
 
+        // Beräknar kroppens hastighet vid en punkt med hänsyn till rotation.
         private static Vector2D GetVelocityAtPoint(PhysicsObject body, Vector2D offset)
         {
             return body.Velocity + new Vector2D(-body.AngularVelocity * offset.Y, body.AngularVelocity * offset.X);
         }
 
+        // Applicerar en impuls på både kroppens linjära och roterande rörelse.
         private static void ApplyCollisionImpulse(PhysicsObject body, float direction, Vector2D offset, Vector2D impulse)
         {
             if (body.IsStatic)
@@ -162,6 +182,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             body.AngularVelocity += direction * Cross(offset, impulse) * body.InverseInertia;
         }
 
+        // Ritar alla kroppar och visar deras hastighetsvektorer.
         public void DrawObjects()
         {
             foreach (var body in Bodies)
@@ -207,6 +228,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             }
         }
 
+        // Approximerar en roterad ellips med trianglar och kantlinjer.
         private static void DrawEllipseBody(PhysicsObject body)
         {
             const int segments = 32;
@@ -232,6 +254,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             }
         }
 
+        // Skapar punkter för respektive form och testar om kropparna överlappar.
         private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
         {
             normal = Vector2D.Zero;
@@ -246,6 +269,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             return TryGetPolygonCollision(pointsA, pointsB, CircelpintsA, CircelpintsB, out normal, out penetration, out contactPoint, a, b);
         }
 
+        // Använder separerande axlar för att hitta överlappning, minsta penetration och normal.
         private bool TryGetPolygonCollision(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D[] CircelpintsA, Vector2D[] CircelpintsB, out Vector2D normal, out float penetration, out Vector2D contactPoint, PhysicsObject a, PhysicsObject b)
         {
             normal = Vector2D.Zero;
@@ -338,6 +362,7 @@ namespace _2d_fysik_motor // resseted 1 gång
                 Vector2D[] points = shape == 0 ? pointsA : pointsB;
                 for (int i = 0; i < points.Length; i++)
                 {
+                    // En kantnormal kan skilja formerna åt om deras projektioner inte överlappar.
                     Vector2D edge = points[(i + 1) % points.Length] - points[i];
                     Vector2D axis = new Vector2D(-edge.Y, edge.X).Normalized();
                     if (axis.Length() == 0f)
@@ -364,6 +389,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             centerA /= pointsA.Length;
             centerB /= pointsB.Length;
 
+            // Rikta kollisionsnormalen från kropp A mot kropp B.
             if (Vector2D.Dot(centerB - centerA, normal) < 0f)
                 normal *= -1f;
 
@@ -371,6 +397,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             return true;
         }
 
+        // Väljer ett ungefärligt kontaktläge mellan kropparnas stödytor.
         private Vector2D GetContactPoint(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D normal)
         {
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
@@ -386,6 +413,7 @@ namespace _2d_fysik_motor // resseted 1 gång
             return tangent * tangentPosition + normal * ((normalA + normalB) * 0.5f);
         }
 
+        // Hämtar stödytans ytterpunkter längs tangenten och dess läge längs normalen.
         private void GetSupportFeature(
             Vector2D[] points,
             Vector2D supportDirection,
@@ -423,6 +451,7 @@ namespace _2d_fysik_motor // resseted 1 gång
 
 
 
+        // Projicerar polygonens punkter på en axel och hittar min- och maxvärdet.
         private void ProjectBox(Vector2D[] corners, Vector2D axis, out float min, out float max)
         {
             min = Vector2D.Dot(corners[0], axis);
@@ -440,7 +469,8 @@ namespace _2d_fysik_motor // resseted 1 gång
                     max = projection;
             }
         }
-        
+
+        // Beräknar den roterade boxens fyra hörn i världens koordinater.
         private Vector2D[] GetBoxCorners(PhysicsObject body)
         {
             float rotation = body.Rotation;

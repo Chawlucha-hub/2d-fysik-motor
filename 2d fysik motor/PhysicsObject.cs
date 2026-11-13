@@ -8,31 +8,40 @@ using System.Threading.Tasks;
 
 namespace _2d_fysik_motor
 {
+    // Anger vilken grundform en fysikkropp använder.
     public enum ObjectType
     {
         Ball,
         Box
     }
+
+    // Tvådimensionell vektor med de operationer som fysikberäkningarna behöver.
     public struct Vector2D
     {
+        // Komponenter längs världens X- och Y-axel.
         public float X;
         public float Y;
 
+        // Skapar en vektor med angivna komponenter.
         public Vector2D(float x, float y)
         {
             X = x;
             Y = y;
         }
 
-        // fysik operationen
+        // Grundläggande vektoroperationer som används av fysikberäkningarna.
         public static Vector2D operator +(Vector2D a, Vector2D b) => new Vector2D(a.X + b.X, a.Y + b.Y);
         public static Vector2D operator -(Vector2D a, Vector2D b) => new Vector2D(a.X - b.X, a.Y - b.Y);
         public static Vector2D operator *(Vector2D a, float scalar) => new Vector2D(a.X * scalar, a.Y * scalar);
         public static Vector2D operator /(Vector2D a, float scalar) { return new Vector2D(a.X / scalar, a.Y / scalar); }
+
+        // Beräknar vektorns längd.
         public float Length()
         {
             return MathF.Sqrt(X * X + Y * Y);
         }
+
+        // Returnerar en vektor med längden ett, eller nollvektorn om längden är noll.
         public Vector2D Normalized()
         {
             float length = Length();
@@ -44,38 +53,45 @@ namespace _2d_fysik_motor
             return this / length;
         }
 
+        // Beräknar skalärprodukten mellan två vektorer.
         public static float Dot(Vector2D a, Vector2D b)
         {
             return a.X * b.X + a.Y * b.Y;
         }
+
+        // Nollvektorn.
         public static Vector2D Zero => new Vector2D(0, 0);
     }
+
+    // Representerar en kropp med fysikaliska egenskaper och rörelsetillstånd.
     public class PhysicsObject
     {
-        // egenskaper
+        // Kroppens position, hastighet och krafter som ännu inte har integrerats.
         public Vector2D Position;
         public Vector2D Velocity;
         public Vector2D ForceAccumulator;
 
         public float Mass { get; private set; }
-        public float InverseMass { get; private set; } // Används för prestanda (1 / Mass)
-        public float Restitution { get; set; } = 0.8f; // Bounciness (0 = inga studsar, 1 = perfekt studs)
-        public bool IsStatic => InverseMass == 0f;     // Om objektet är obevägligt (t.ex. ett golv)
+        public float InverseMass { get; private set; } // Statiska kroppar har invers massa noll.
+        public float Restitution { get; set; } = 0.8f; // 0 ger ingen studs och 1 ger full studs.
+        public bool IsStatic => InverseMass == 0f;     // Sant när kroppen inte påverkas av krafter.
         public ObjectType objectType { get; set; }
         public float? radius = 20f;
         public float? width = 20f;
         public float? height = 20f;
         public float AngularVelocity { get; set; } = 0f; // Hur snabbt objektet snurrar just nu
         public float Rotation { get; set; } = 0f;        // Objektets nuvarande vinkel i radianer
-        public float InverseInertia { get; private set; } // 1 dividerat med tröghetsmomentet
+        public float InverseInertia { get; private set; } // Inversen av tröghetsmomentet för rotationsberäkningar.
 
 
+        // Påverkar hur mycket kropparna bromsas mot varandra vid glidning.
         public float Friction { get; private set; }
 
         public float HalfWidth => width.GetValueOrDefault() / 2f;
         public float HalfHeight => height.GetValueOrDefault() / 2f;
 
 
+        // Halvstorleken på kroppens rotationsjusterade, axelriktade omslutande låda.
         public Vector2D BoundingRadius
         {
             get
@@ -88,6 +104,7 @@ namespace _2d_fysik_motor
             }
         }
 
+        // Hämtar ellipsens fyra roterade ytterpunkter i världens koordinater.
         public Vector2D[] GetEllipsePoints()
         {
             float cos = MathF.Cos(Rotation);
@@ -111,9 +128,9 @@ namespace _2d_fysik_motor
             return localPoints;
         }
 
+        // Skapar kroppen, ställer in dess form och beräknar dess massa- och tröghetsdata.
         public PhysicsObject(Vector2D position , float mass, float friction, float rotation, float? radius, float width, float height, ObjectType newObjectType)
         {
-            // gör väderna anvendbara
             Position = position;
             SetMass(mass);
             Velocity = Vector2D.Zero;
@@ -181,11 +198,15 @@ namespace _2d_fysik_motor
 
             InverseInertia = inertia > 0f ? 1f / inertia : 0f;
         }
+
+        // Lägger till en kraft som används vid nästa uppdatering.
         public void AddForce(Vector2D force)
         {
             if (IsStatic) return;
             ForceAccumulator += force;
         }
+
+        // Integrerar hastighet, position och rotation och nollställer sedan kraftsumman.
         public void Update(float deltaTime)
         {
             if (IsStatic) return;
