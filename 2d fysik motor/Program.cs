@@ -72,7 +72,7 @@ internal static class Program
             }
             if (Raylib.IsKeyPressed(KeyboardKey.R))
             {
-                PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 1.5f, friction: 0.4f, 20f, 100f, 50f, ObjectType.Ball);
+                PhysicsObject newBall = world.AddBody(new Vector2D(mouseX, mouseY), mass: 100f, friction: 0.4f, 20f, 100f, 50f, ObjectType.Ball);
                 newBall.Restitution = 0.75f; // Studsighet
 
                 // Objektet börjar stilla.
