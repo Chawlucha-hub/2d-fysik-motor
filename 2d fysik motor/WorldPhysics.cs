@@ -231,27 +231,67 @@ namespace _2d_fysik_motor
         // Approximerar en roterad ellips med trianglar och kantlinjer.
         private static void DrawEllipseBody(PhysicsObject body)
         {
-            const int segments = 32;
+            const int segments = 128;
+
+            float a = body.HalfWidth;
+            float b = body.HalfHeight;
+
             float cos = MathF.Cos(body.Rotation);
             float sin = MathF.Sin(body.Rotation);
-            Vector2D previous = body.Position + new Vector2D(body.HalfWidth * cos, body.HalfWidth * sin);
+
+            // Börja vid den högra ändpunkten.
+            Vector2D previous = new Vector2D(
+                body.Position.X + a * cos,
+                body.Position.Y + a * sin
+            );
 
             for (int i = 1; i <= segments; i++)
             {
-                float angle = i * MathF.Tau / segments;
-                Vector2D local = new Vector2D(body.HalfWidth * MathF.Cos(angle), body.HalfHeight * MathF.Sin(angle));
-                Vector2D current = body.Position + new Vector2D(
-                    local.X * cos - local.Y * sin,
-                    local.X * sin + local.Y * cos);
+                // Vinkel från 0 till PI ger en halv ellips.
+                float angle = MathF.PI * 2f * i / segments;
 
-                Raylib.DrawTriangle(
-                    new Vector2(body.Position.X, body.Position.Y),
-                    new Vector2(previous.X, previous.Y),
-                    new Vector2(current.X, current.Y),
-                    Color.DarkPurple);
-                Raylib.DrawLine((int)previous.X, (int)previous.Y, (int)current.X, (int)current.Y, Color.DarkPurple);
+                // Punkter på en halv ellips i lokala koordinater.
+                float localX = a * MathF.Cos(angle);
+                float localY = b * MathF.Sin(angle);
+
+                // Rotera punkten och flytta den till världens position.
+                Vector2D current = new Vector2D(
+                    body.Position.X + localX * cos - localY * sin,
+                    body.Position.Y + localX * sin + localY * cos
+                );
+
+                
+
+                // Rita bågens kant.
+                Raylib.DrawLine(
+                    (int)previous.X,
+                    (int)previous.Y,
+                    (int)current.X,
+                    (int)current.Y,
+                    Color.DarkPurple
+                );
+
                 previous = current;
             }
+
+            // Rita den raka undersidan.
+            Vector2D point1 = new Vector2D(
+                body.Position.X - a * cos,
+                body.Position.Y - a * sin
+            );
+
+            Vector2D point2 = new Vector2D(
+                body.Position.X + a * cos,
+                body.Position.Y + a * sin
+            );
+
+            Raylib.DrawLine(
+                (int)point1.X,
+                (int)point1.Y,
+                (int)point2.X,
+                (int)point2.Y,
+                Color.DarkPurple
+            );
         }
 
         // Skapar punkter för respektive form och testar om kropparna överlappar.
@@ -305,28 +345,29 @@ namespace _2d_fysik_motor
             // CIRKEL MOT CIRKEL
             // ---------------------------------
             if (a.objectType == ObjectType.Ball &&
-                b.objectType == ObjectType.Ball)
+     b.objectType == ObjectType.Ball)
             {
-                float radiusA = a.HalfWidth;
-                float radiusB = b.HalfWidth;
-
                 Vector2D direction = b.Position - a.Position;
+
                 float distance = direction.Length();
 
-                float totalRadius = radiusA + radiusB;
+                if (distance < 0.0001f)
+                    direction = new Vector2D(1f, 0f);
+                else
+                    direction /= distance;
 
-                if (distance >= totalRadius)
+                float radiusA = GetEllipseSupportRadius(a, direction);
+                float radiusB = GetEllipseSupportRadius(b, direction * -1f);
+
+                float overlap = radiusA + radiusB - distance;
+
+                if (overlap <= 0f)
                     return false;
 
-                if (distance < 0.0001f)
-                    normal = new Vector2D(1f, 0f);
-                else
-                    normal = direction / distance;
+                normal = direction;
+                penetration = overlap;
 
-                penetration = totalRadius - distance;
-
-                contactPoint = a.Position +
-                    normal * (radiusA - penetration * 0.5f);
+                contactPoint = a.Position + direction * radiusA;
 
                 return true;
             }
@@ -342,13 +383,14 @@ namespace _2d_fysik_motor
                 PhysicsObject box =
                     a.objectType == ObjectType.Box ? a : b;
 
-                float radius = circle.HalfWidth;
+                // Ellipsens centrum är dess Position.
+                Vector2D ellipseCenter = circle.Position;
 
                 float cos = MathF.Cos(box.Rotation);
                 float sin = MathF.Sin(box.Rotation);
 
-                // Cirkelns centrum i boxens lokala koordinater.
-                Vector2D relative = circle.Position - box.Position;
+                // Ellipsens centrum i boxens lokala koordinater.
+                Vector2D relative = ellipseCenter - box.Position;
 
                 float localX = relative.X * cos + relative.Y * sin;
                 float localY = -relative.X * sin + relative.Y * cos;
@@ -360,28 +402,33 @@ namespace _2d_fysik_motor
                 float closestY = Math.Clamp(
                     localY, -box.HalfHeight, box.HalfHeight);
 
-                // Omvandla närmaste punkten till världens koordinater.
+                // Omvandla punkten till världens koordinater.
                 Vector2D closestPoint = box.Position + new Vector2D(
                     closestX * cos - closestY * sin,
                     closestX * sin + closestY * cos);
 
-                Vector2D difference = closestPoint - circle.Position;
+                Vector2D difference = closestPoint - ellipseCenter;
                 float distance = difference.Length();
 
-                Vector2D circleToBox;
+                Vector2D ellipseToBox;
 
                 if (distance > 0.0001f)
                 {
-                    // Cirkelns centrum ligger utanför boxen.
-                    if (distance >= radius)
+                    // Ellipsens utsträckning i riktningen mot boxen.
+                    Vector2D direction = difference / distance;
+
+                    float ellipseRadius =
+                        GetEllipseRadiusInDirection(circle, direction);
+
+                    if (distance >= ellipseRadius)
                         return false;
 
-                    circleToBox = difference / distance;
-                    penetration = radius - distance;
+                    ellipseToBox = direction;
+                    penetration = ellipseRadius - distance;
                 }
                 else
                 {
-                    // Cirkelns centrum ligger inuti boxen.
+                    // Ellipsens centrum ligger inuti boxen.
                     float distanceX = box.HalfWidth - MathF.Abs(localX);
                     float distanceY = box.HalfHeight - MathF.Abs(localY);
 
@@ -399,7 +446,8 @@ namespace _2d_fysik_motor
                             sign * box.HalfWidth * cos - localY * sin,
                             sign * box.HalfWidth * sin + localY * cos);
 
-                        penetration = radius + distanceX;
+                        penetration =
+                            distanceX + GetEllipseSupportRadius(circle, outward);
                     }
                     else
                     {
@@ -413,18 +461,17 @@ namespace _2d_fysik_motor
                             localX * cos - sign * box.HalfHeight * sin,
                             localX * sin + sign * box.HalfHeight * cos);
 
-                        penetration = radius + distanceY;
+                        penetration =
+                            distanceY + GetEllipseSupportRadius(circle, outward);
                     }
 
-                    // Riktningen från cirkeln mot boxen är motsatt
-                    // boxens utåtriktade normal när cirkeln är inuti.
-                    circleToBox = outward * -1f;
+                    ellipseToBox = outward * -1f;
                 }
 
                 // Normalen ska alltid peka från A mot B.
                 normal = a.objectType == ObjectType.Ball
-                    ? circleToBox
-                    : circleToBox * -1f;
+                    ? ellipseToBox
+                    : ellipseToBox * -1f;
 
                 contactPoint = closestPoint;
 
@@ -506,6 +553,29 @@ namespace _2d_fysik_motor
 
             return tangent * tangentPosition + normal * ((normalA + normalB) * 0.5f);
         }
+        private float GetEllipseRadiusInDirection(
+    PhysicsObject body,
+    Vector2D direction)
+        {
+            float cos = MathF.Cos(body.Rotation);
+            float sin = MathF.Sin(body.Rotation);
+
+            // Riktningen omvandlas till ellipsens lokala koordinater.
+            float localX = direction.X * cos + direction.Y * sin;
+            float localY = -direction.X * sin + direction.Y * cos;
+
+            float a = body.HalfWidth;
+            float b = body.HalfHeight;
+
+            float denominator = MathF.Sqrt(
+                (localX * localX) / (a * a) +
+                (localY * localY) / (b * b));
+
+            if (denominator < 0.0001f)
+                return 0f;
+
+            return 1f / denominator;
+        }
 
         // Hämtar stödytans ytterpunkter längs tangenten och dess läge längs normalen.
         private void GetSupportFeature(
@@ -540,6 +610,28 @@ namespace _2d_fysik_motor
 
             normalPosition /= supportCount;
         }
+        private Vector2D GetArcCenter(PhysicsObject body)
+        {
+            float diameter = body.HalfWidth * 2f;
+            float h = body.HalfHeight;
+
+            // Skydd mot ogiltiga värden.
+            h = Math.Clamp(h, 0.001f, diameter);
+
+            // Beräkna cirkelns radie.
+            float radius = (diameter * diameter) / (8f * h) + h / 2f;
+
+            // Avståndet mellan bågens mittpunkt och cirkelns centrum.
+            float offset = radius - h;
+
+            float cos = MathF.Cos(body.Rotation);
+            float sin = MathF.Sin(body.Rotation);
+
+            // Vinkelrät riktning mot linjen mellan ändpunkterna.
+            Vector2D normal = new Vector2D(-sin, cos);
+
+            return body.Position - normal * offset;
+        }
 
 
 
@@ -565,28 +657,42 @@ namespace _2d_fysik_motor
         }
         private Vector2D[] GetCirclePoints(PhysicsObject body)
         {
-             float rotation = body.Rotation;
-
+            float rotation = body.Rotation;
             float radius = body.HalfWidth;
 
             float cos = MathF.Cos(rotation);
             float sin = MathF.Sin(rotation);
 
             Vector2D point1 = new Vector2D(
-        body.Position.X - radius * cos,
-        body.Position.Y - radius * sin
-    );
+                body.Position.X - radius * cos,
+                body.Position.Y - radius * sin
+            );
 
             Vector2D point2 = new Vector2D(
                 body.Position.X + radius * cos,
                 body.Position.Y + radius * sin
             );
 
-            return new Vector2D[]
-            {
-        point1,
-        point2
-            };
+            return new Vector2D[] { point1, point2 };
+        }
+        private float GetEllipseSupportRadius(
+    PhysicsObject body,
+    Vector2D direction)
+        {
+            float cos = MathF.Cos(body.Rotation);
+            float sin = MathF.Sin(body.Rotation);
+
+            // Riktningen i ellipsens lokala koordinater.
+            float localX = direction.X * cos + direction.Y * sin;
+            float localY = -direction.X * sin + direction.Y * cos;
+
+            float a = body.HalfWidth;
+            float b = body.HalfHeight;
+
+            return MathF.Sqrt(
+                a * a * localX * localX +
+                b * b * localY * localY
+            );
         }
 
         // Beräknar den roterade boxens fyra hörn i världens koordinater.
