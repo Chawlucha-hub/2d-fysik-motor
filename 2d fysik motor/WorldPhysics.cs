@@ -491,8 +491,6 @@ namespace _2d_fysik_motor
             return true;
         }
 
-       
-
         // Väljer ett ungefärligt kontaktläge mellan kropparnas stödytor.
         private Vector2D GetContactPoint(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D normal)
         {
