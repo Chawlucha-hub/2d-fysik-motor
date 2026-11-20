@@ -255,122 +255,211 @@ namespace _2d_fysik_motor
         }
 
         // Skapar punkter för respektive form och testar om kropparna överlappar.
-        private bool TryGetCollision(PhysicsObject a, PhysicsObject b, out Vector2D normal, out float penetration, out Vector2D contactPoint)
+
+        private bool TryGetCollision(
+     PhysicsObject a,
+     PhysicsObject b,
+     out Vector2D normal,
+     out float penetration,
+     out Vector2D contactPoint)
         {
             normal = Vector2D.Zero;
             penetration = 0f;
             contactPoint = Vector2D.Zero;
 
-            Vector2D[] pointsA = a.objectType == ObjectType.Box ? GetBoxCorners(a) : a.GetEllipsePoints();
-            Vector2D[] pointsB = b.objectType == ObjectType.Box ? GetBoxCorners(b) : b.GetEllipsePoints();
-            Vector2D[] CircelpintsA = a.objectType == ObjectType.Ball? GetBoxCorners(a) : a.GetEllipsePoints();
-            Vector2D[] CircelpintsB = b.objectType == ObjectType.Ball ? GetBoxCorners(a) : a.GetEllipsePoints();
+            Vector2D[] pointsA = a.objectType == ObjectType.Ball
+                ? GetCirclePoints(a)
+                : GetBoxCorners(a);
 
-            return TryGetPolygonCollision(pointsA, pointsB, CircelpintsA, CircelpintsB, out normal, out penetration, out contactPoint, a, b);
+            Vector2D[] pointsB = b.objectType == ObjectType.Ball
+                ? GetCirclePoints(b)
+                : GetBoxCorners(b);
+
+            return TryGetPolygonCollision(
+                pointsA, pointsB,
+                pointsA, pointsB,
+                out normal,
+                out penetration,
+                out contactPoint,
+                a, b);
         }
 
+
         // Använder separerande axlar för att hitta överlappning, minsta penetration och normal.
-        private bool TryGetPolygonCollision(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D[] CircelpintsA, Vector2D[] CircelpintsB, out Vector2D normal, out float penetration, out Vector2D contactPoint, PhysicsObject a, PhysicsObject b)
+        private bool TryGetPolygonCollision(
+    Vector2D[] pointsA,
+    Vector2D[] pointsB,
+    Vector2D[] CircelpintsA,
+    Vector2D[] CircelpintsB,
+    out Vector2D normal,
+    out float penetration,
+    out Vector2D contactPoint,
+    PhysicsObject a,
+    PhysicsObject b)
         {
             normal = Vector2D.Zero;
-            penetration = float.MaxValue;
+            penetration = 0f;
             contactPoint = Vector2D.Zero;
-            
-            if (a.objectType == ObjectType.Ball && b.objectType == ObjectType.Ball)
+
+            // ---------------------------------
+            // CIRKEL MOT CIRKEL
+            // ---------------------------------
+            if (a.objectType == ObjectType.Ball &&
+                b.objectType == ObjectType.Ball)
             {
-                for (int shape = 0; shape < 2; shape++)
-                {
-                    Vector2D[] Circelpints = shape == 0 ? CircelpintsA : CircelpintsB;
-                    for (int i = 0; i < Circelpints.Length; i++)
-                    {
-                        Vector2D AA = Circelpints[i];
-                        Vector2D BA = Circelpints[(i + 1) % Circelpints.Length];
+                float radiusA = a.HalfWidth;
+                float radiusB = b.HalfWidth;
 
-                        float dxA = BA.X - AA.X;
-                        float dyA = BA.Y - AA.Y;
+                Vector2D direction = b.Position - a.Position;
+                float distance = direction.Length();
 
-                        float diameterA = MathF.Sqrt(dxA * dxA + dyA * dyA);
+                float totalRadius = radiusA + radiusB;
 
-                        if (diameterA < 0.0001f)
-                            continue;
+                if (distance >= totalRadius)
+                    return false;
 
-                        Vector2D mitpunktA = (AA + BA) / 2f;
+                if (distance < 0.0001f)
+                    normal = new Vector2D(1f, 0f);
+                else
+                    normal = direction / distance;
 
-                        // Höjden är proportionell mot avståndet mellan A och B
-                        float kA = 0.25f;
-                        float höjdA = kA * diameterA;
+                penetration = totalRadius - distance;
 
-                        // Beräkna cirkelns radie
-                        float radioseA = (diameterA * diameterA ) / (8f * höjdA) + höjdA / 2f;
+                contactPoint = a.Position +
+                    normal * (radiusA - penetration * 0.5f);
 
-                        // Normalvektor med längden 1
-                        Vector2D vA = BA - AA;
-                        Vector2D nA = new Vector2D(-vA.Y, vA.X) / diameterA;
-
-                        // Cirkelns centrum
-                        Vector2D CA = mitpunktA + nA * (radioseA - höjdA);
-
-                        // Kontrollera om cirkeln och den andra polygonen kolliderar
-
-                        Vector2D AB = Circelpints[i];
-                        Vector2D BB = Circelpints[(i + 1) % Circelpints.Length];
-
-                        float dxB = BB.X - AB.X;
-                        float dyB = BB.Y - AB.Y;
-
-                        float diameterB = MathF.Sqrt(dxB * dxB + dyB * dyB);
-
-                        if (diameterB < 0.0001f)
-                            continue;
-
-                        Vector2D mitpunktB = (AB + BB) / 2f;
-
-                        // Höjden är proportionell mot avståndet mellan A och B
-                        float kB = 0.25f;
-                        float höjdB = kB * diameterB;
-
-                        // Beräkna cirkelns radie
-                        float radioseB = (diameterB * diameterB) / (8f * höjdB) + höjdB / 2f;
-
-                        // Normalvektor med längden 1
-                        Vector2D vB = BB - AB;
-                        Vector2D nB = new Vector2D(-vB.Y, vB.X) / diameterB;
-
-                        // Cirkelns centrum
-                        Vector2D CB = mitpunktB + nB * (radioseB - höjdB);
-
-                        Vector2D skillnad = CA - CB;
-                        float avstand2 = Vector2D.Dot(skillnad, skillnad);
-
-                        if (avstand2 <= (radioseA + radioseB) * (radioseA + radioseB))
-                        {
-                            // Cirklarna överlappar eller tangerar varandra
-
-                        }
-
-
-                    }
-                }
-                   
-
-
+                return true;
             }
-            
+
+            // ---------------------------------
+            // CIRKEL MOT BOX
+            // ---------------------------------
+            if (a.objectType != b.objectType)
+            {
+                PhysicsObject circle =
+                    a.objectType == ObjectType.Ball ? a : b;
+
+                PhysicsObject box =
+                    a.objectType == ObjectType.Box ? a : b;
+
+                float radius = circle.HalfWidth;
+
+                float cos = MathF.Cos(box.Rotation);
+                float sin = MathF.Sin(box.Rotation);
+
+                // Cirkelns centrum i boxens lokala koordinater.
+                Vector2D relative = circle.Position - box.Position;
+
+                float localX = relative.X * cos + relative.Y * sin;
+                float localY = -relative.X * sin + relative.Y * cos;
+
+                // Närmaste punkt på boxen.
+                float closestX = Math.Clamp(
+                    localX, -box.HalfWidth, box.HalfWidth);
+
+                float closestY = Math.Clamp(
+                    localY, -box.HalfHeight, box.HalfHeight);
+
+                // Omvandla närmaste punkten till världens koordinater.
+                Vector2D closestPoint = box.Position + new Vector2D(
+                    closestX * cos - closestY * sin,
+                    closestX * sin + closestY * cos);
+
+                Vector2D difference = closestPoint - circle.Position;
+                float distance = difference.Length();
+
+                Vector2D circleToBox;
+
+                if (distance > 0.0001f)
+                {
+                    // Cirkelns centrum ligger utanför boxen.
+                    if (distance >= radius)
+                        return false;
+
+                    circleToBox = difference / distance;
+                    penetration = radius - distance;
+                }
+                else
+                {
+                    // Cirkelns centrum ligger inuti boxen.
+                    float distanceX = box.HalfWidth - MathF.Abs(localX);
+                    float distanceY = box.HalfHeight - MathF.Abs(localY);
+
+                    Vector2D outward;
+
+                    if (distanceX < distanceY)
+                    {
+                        float sign = localX >= 0f ? 1f : -1f;
+
+                        outward = new Vector2D(
+                            sign * cos,
+                            sign * sin);
+
+                        closestPoint = box.Position + new Vector2D(
+                            sign * box.HalfWidth * cos - localY * sin,
+                            sign * box.HalfWidth * sin + localY * cos);
+
+                        penetration = radius + distanceX;
+                    }
+                    else
+                    {
+                        float sign = localY >= 0f ? 1f : -1f;
+
+                        outward = new Vector2D(
+                            -sign * sin,
+                            sign * cos);
+
+                        closestPoint = box.Position + new Vector2D(
+                            localX * cos - sign * box.HalfHeight * sin,
+                            localX * sin + sign * box.HalfHeight * cos);
+
+                        penetration = radius + distanceY;
+                    }
+
+                    // Riktningen från cirkeln mot boxen är motsatt
+                    // boxens utåtriktade normal när cirkeln är inuti.
+                    circleToBox = outward * -1f;
+                }
+
+                // Normalen ska alltid peka från A mot B.
+                normal = a.objectType == ObjectType.Ball
+                    ? circleToBox
+                    : circleToBox * -1f;
+
+                contactPoint = closestPoint;
+
+                return true;
+            }
+
+            // ---------------------------------
+            // BOX MOT BOX (DIN BEFINTLIGA SAT)
+            // ---------------------------------
+            penetration = float.MaxValue;
 
             for (int shape = 0; shape < 2; shape++)
             {
                 Vector2D[] points = shape == 0 ? pointsA : pointsB;
+
                 for (int i = 0; i < points.Length; i++)
                 {
-                    // En kantnormal kan skilja formerna åt om deras projektioner inte överlappar.
-                    Vector2D edge = points[(i + 1) % points.Length] - points[i];
-                    Vector2D axis = new Vector2D(-edge.Y, edge.X).Normalized();
+                    Vector2D edge =
+                        points[(i + 1) % points.Length] - points[i];
+
+                    Vector2D axis =
+                        new Vector2D(-edge.Y, edge.X).Normalized();
+
                     if (axis.Length() == 0f)
                         continue;
 
-                    ProjectBox(pointsA, axis, out float minA, out float maxA);
-                    ProjectBox(pointsB, axis, out float minB, out float maxB);
-                    float overlap = MathF.Min(maxA, maxB) - MathF.Max(minA, minB);
+                    ProjectBox(pointsA, axis,
+                        out float minA, out float maxA);
+
+                    ProjectBox(pointsB, axis,
+                        out float minB, out float maxB);
+
+                    float overlap =
+                        MathF.Min(maxA, maxB) - MathF.Max(minA, minB);
+
                     if (overlap < 0f)
                         return false;
 
@@ -384,17 +473,137 @@ namespace _2d_fysik_motor
 
             Vector2D centerA = Vector2D.Zero;
             Vector2D centerB = Vector2D.Zero;
-            foreach (Vector2D point in pointsA) centerA += point;
-            foreach (Vector2D point in pointsB) centerB += point;
+
+            foreach (Vector2D point in pointsA)
+                centerA += point;
+
+            foreach (Vector2D point in pointsB)
+                centerB += point;
+
             centerA /= pointsA.Length;
             centerB /= pointsB.Length;
 
-            // Rikta kollisionsnormalen från kropp A mot kropp B.
             if (Vector2D.Dot(centerB - centerA, normal) < 0f)
                 normal *= -1f;
 
             contactPoint = GetContactPoint(pointsA, pointsB, normal);
+
             return true;
+        }
+
+        private void GetArcCircle(
+    Vector2D AA,
+    Vector2D BA,
+    float k,
+    out Vector2D center,
+    out float radius)
+        {
+            Vector2D v = BA - AA;
+
+            float diameter = v.Length();
+
+            if (diameter < 0.0001f)
+            {
+                center = Vector2D.Zero;
+                radius = 0f;
+                return;
+            }
+
+            Vector2D midpoint = (AA + BA) / 2f;
+
+            float height = k * diameter;
+
+            radius = (diameter * diameter) / (8f * height) + height / 2f;
+
+            Vector2D normal = new Vector2D(-v.Y, v.X) / diameter;
+
+            center = midpoint + normal * (radius - height);
+        }
+        private bool IsOnMinorArc(
+    Vector2D P,
+    Vector2D A,
+    Vector2D B,
+    Vector2D C)
+        {
+            Vector2D vA = A - C;
+            Vector2D vB = B - C;
+            Vector2D vP = P - C;
+
+            float angleAB = MathF.Atan2(
+                Cross(vA, vB),
+                Vector2D.Dot(vA, vB));
+
+            float angleAP = MathF.Atan2(
+                Cross(vA, vP),
+                Vector2D.Dot(vA, vP));
+
+            const float epsilon = 0.0001f;
+
+            if (angleAB >= 0f)
+                return angleAP >= -epsilon &&
+                       angleAP <= angleAB + epsilon;
+
+            return angleAP <= epsilon &&
+                   angleAP >= angleAB - epsilon;
+        }
+
+        private bool TryGetArcIntersection(
+    Vector2D A1, Vector2D B1,
+    Vector2D C1, float r1,
+    Vector2D A2, Vector2D B2,
+    Vector2D C2, float r2,
+    out Vector2D intersection)
+        {
+            intersection = Vector2D.Zero;
+
+            Vector2D delta = C2 - C1;
+            float distance = delta.Length();
+
+            if (distance < 0.0001f)
+                return false;
+
+            // Kontrollera om cirklarna överhuvudtaget skär varandra.
+            if (distance > r1 + r2 ||
+                distance < MathF.Abs(r1 - r2))
+                return false;
+
+            // Avstånd från C1 till skärningspunkternas mittlinje.
+            float a = (r1 * r1 - r2 * r2 + distance * distance)
+                      / (2f * distance);
+
+            float hSquared = r1 * r1 - a * a;
+
+            if (hSquared < -0.0001f)
+                return false;
+
+            float h = MathF.Sqrt(MathF.Max(0f, hSquared));
+
+            Vector2D direction = delta / distance;
+
+            Vector2D midpoint = C1 + direction * a;
+
+            Vector2D perpendicular =
+                new Vector2D(-direction.Y, direction.X);
+
+            Vector2D p1 = midpoint + perpendicular * h;
+            Vector2D p2 = midpoint - perpendicular * h;
+
+            // Kontrollera om någon skärningspunkt ligger på båda bågarna.
+            if (IsOnMinorArc(p1, A1, B1, C1) &&
+                IsOnMinorArc(p1, A2, B2, C2))
+            {
+                intersection = p1;
+                return true;
+            }
+
+            if (IsOnMinorArc(p2, A1, B1, C1) &&
+                IsOnMinorArc(p2, A2, B2, C2))
+            {
+                intersection = p2;
+                return true;
+            }
+
+            return false;
         }
 
         // Väljer ett ungefärligt kontaktläge mellan kropparnas stödytor.
@@ -468,6 +677,31 @@ namespace _2d_fysik_motor
                 if (projection > max)
                     max = projection;
             }
+        }
+        private Vector2D[] GetCirclePoints(PhysicsObject body)
+        {
+             float rotation = body.Rotation;
+
+            float radius = body.HalfWidth;
+
+            float cos = MathF.Cos(rotation);
+            float sin = MathF.Sin(rotation);
+
+            Vector2D point1 = new Vector2D(
+        body.Position.X - radius * cos,
+        body.Position.Y - radius * sin
+    );
+
+            Vector2D point2 = new Vector2D(
+                body.Position.X + radius * cos,
+                body.Position.Y + radius * sin
+            );
+
+            return new Vector2D[]
+            {
+        point1,
+        point2
+            };
         }
 
         // Beräknar den roterade boxens fyra hörn i världens koordinater.
