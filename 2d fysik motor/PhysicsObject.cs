@@ -132,6 +132,7 @@ namespace _2d_fysik_motor
         public PhysicsObject(Vector2D position , float mass, float friction, float rotation, float? radius, float width, float height, ObjectType newObjectType)
         {
             Position = position;
+            objectType = newObjectType;
             SetMass(mass);
             Velocity = Vector2D.Zero;
             ForceAccumulator = Vector2D.Zero;
@@ -155,7 +156,7 @@ namespace _2d_fysik_motor
                 this.radius = radius ?? MathF.Max(this.width.Value, this.height.Value) / 2f;
             }
 
-            objectType = newObjectType;
+            
             SetFriction(friction);
             UpdateInertia();
         }
