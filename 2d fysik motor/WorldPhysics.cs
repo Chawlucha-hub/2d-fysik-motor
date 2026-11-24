@@ -103,12 +103,6 @@ namespace _2d_fysik_motor
 
             if (Vector2D.Dot(b.Position - a.Position, normal) < 0f)
                 normal *= -1f;
-
-            // Fördelar positionskorrigeringen enligt kropparnas inversa massor.
-            Vector2D correction = normal * (penetration / totalInverseMass);
-            if (!a.IsStatic) a.Position -= correction * a.InverseMass;
-            if (!b.IsStatic) b.Position += correction * b.InverseMass;
-
             // Kontaktpunktens hastighet inkluderar både rörelse och rotation.
             Vector2D rA = contactPoint - a.Position;
             Vector2D rB = contactPoint - b.Position;
@@ -116,6 +110,13 @@ namespace _2d_fysik_motor
             Vector2D velocityB = GetVelocityAtPoint(b, rB);
             Vector2D relativeVelocity = velocityB - velocityA;
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
+
+            // Fördelar positionskorrigeringen enligt kropparnas inversa massor.
+            Vector2D correction = normal * (penetration / totalInverseMass);
+            if (!a.IsStatic) a.Position -= correction * a.InverseMass;
+            if (!b.IsStatic) b.Position += correction * b.InverseMass;
+
+            
 
             if (velocityAlongNormal >= 0f)
                 return;
@@ -130,9 +131,7 @@ namespace _2d_fysik_motor
                 return;
 
             // Dämpar studs vid låga hastigheter för att undvika små, oönskade studs.
-            float restitution = MathF.Abs(velocityAlongNormal) < 30f
-                ? 0f
-                : Math.Clamp(MathF.Min(a.Restitution, b.Restitution), 0f, 1f);
+            float restitution = Math.Clamp(MathF.Min(a.Restitution, b.Restitution), 0f, 1f);
             float normalImpulseMagnitude = -(1f + restitution) * velocityAlongNormal / normalDenominator;
             Vector2D normalImpulse = normal * normalImpulseMagnitude;
 
@@ -154,7 +153,7 @@ namespace _2d_fysik_motor
             float frictionImpulseMagnitude = tangentDenominator > 0f
                 ? -Vector2D.Dot(relativeVelocity, tangent) / tangentDenominator
                 : 0f;
-            float frictionCoefficient = (a.Friction + b.Friction) / 2f;
+            float frictionCoefficient = MathF.Sqrt(a.Friction * b.Friction);
             float maxFrictionImpulse = normalImpulseMagnitude * frictionCoefficient;
             frictionImpulseMagnitude = Math.Clamp(frictionImpulseMagnitude, -maxFrictionImpulse, maxFrictionImpulse);
             Vector2D frictionImpulse = tangent * frictionImpulseMagnitude;
@@ -610,32 +609,6 @@ namespace _2d_fysik_motor
 
             normalPosition /= supportCount;
         }
-        private Vector2D GetArcCenter(PhysicsObject body)
-        {
-            float diameter = body.HalfWidth * 2f;
-            float h = body.HalfHeight;
-
-            // Skydd mot ogiltiga värden.
-            h = Math.Clamp(h, 0.001f, diameter);
-
-            // Beräkna cirkelns radie.
-            float radius = (diameter * diameter) / (8f * h) + h / 2f;
-
-            // Avståndet mellan bågens mittpunkt och cirkelns centrum.
-            float offset = radius - h;
-
-            float cos = MathF.Cos(body.Rotation);
-            float sin = MathF.Sin(body.Rotation);
-
-            // Vinkelrät riktning mot linjen mellan ändpunkterna.
-            Vector2D normal = new Vector2D(-sin, cos);
-
-            return body.Position - normal * offset;
-        }
-
-
-
-
 
         // Projicerar polygonens punkter på en axel och hittar min- och maxvärdet.
         private void ProjectBox(Vector2D[] corners, Vector2D axis, out float min, out float max)
