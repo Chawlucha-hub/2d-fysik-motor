@@ -433,17 +433,15 @@ namespace _2d_fysik_motor
 
                 if (distance > 0.0001f)
                 {
-                    // Ellipsens utsträckning i riktningen mot boxen.
                     Vector2D direction = difference / distance;
 
-                    float ellipseRadius =
-                        GetEllipseRadiusInDirection(circle, direction);
+                    float ellipseExtent = GetEllipseSupportRadius(circle, direction);
 
-                    if (distance >= ellipseRadius)
+                    if (distance >= ellipseExtent)
                         return false;
 
                     ellipseToBox = direction;
-                    penetration = ellipseRadius - distance;
+                    penetration = ellipseExtent - distance;
                 }
                 else
                 {
@@ -492,7 +490,8 @@ namespace _2d_fysik_motor
                     ? ellipseToBox
                     : ellipseToBox * -1f;
 
-                contactPoint = closestPoint;
+                // Kontaktpunkt = ellipsens verkliga ytterpunkt mot boxen.
+                contactPoint = GetEllipseSupportPoint(circle, ellipseToBox);
 
                 return true;
             }
@@ -691,61 +690,36 @@ namespace _2d_fysik_motor
             );
         }
 
-        private void GetEllipseSupportPoints(
-            PhysicsObject body,
-            out Vector2D pointA,
-            out Vector2D pointB)
+        // Ellipsens ytterpunkt i en given riktning (världskoordinater).
+        private Vector2D GetEllipseSupportPoint(PhysicsObject body, Vector2D direction)
         {
-            float a = body.HalfWidth;
-            float b = body.HalfHeight;
-
             float cos = MathF.Cos(body.Rotation);
             float sin = MathF.Sin(body.Rotation);
 
-            // Gravitationens riktning.
-            Vector2D down = Gravity.Normalized();
+            float localX = direction.X * cos + direction.Y * sin;
+            float localY = -direction.X * sin + direction.Y * cos;
 
-            // Omvandla gravitationen till ovalens lokala koordinater.
-            float localX = down.X * cos + down.Y * sin;
-            float localY = -down.X * sin + down.Y * cos;
+            float a = body.HalfWidth;
+            float b = body.HalfHeight;
 
-            // Ellipsens stödpunkt i gravitationens riktning.
-            float denominator = MathF.Sqrt(
-                a * a * localX * localX +
-                b * b * localY * localY
-            );
+            float h = MathF.Sqrt(a * a * localX * localX + b * b * localY * localY);
 
-            if (denominator < 0.0001f)
-            {
-                pointA = body.Position;
-                pointB = body.Position;
-                return;
-            }
+            if (h < 0.0001f)
+                return body.Position;
 
-            float supportX =
-                a * a * localX / denominator;
+            float sx = a * a * localX / h;
+            float sy = b * b * localY / h;
 
-            float supportY =
-                b * b * localY / denominator;
-
-            // Omvandla stödjepunkten till världens koordinater.
-            Vector2D support = new Vector2D(
-                supportX * cos - supportY * sin,
-                supportX * sin + supportY * cos
-            );
-
-            pointA = body.Position + support;
-            pointB = body.Position - support;
+            return body.Position + new Vector2D(
+                sx * cos - sy * sin,
+                sx * sin + sy * cos);
         }
 
 
-
-
-
         private void ApplyGravityRotation(
-     PhysicsObject ellipse,
-     PhysicsObject box,
-     float deltaTime)
+    PhysicsObject ellipse,
+    PhysicsObject box,
+    float deltaTime)
         {
             float gravityLength = Gravity.Length();
 
@@ -754,58 +728,57 @@ namespace _2d_fysik_motor
 
             Vector2D down = Gravity / gravityLength;
 
+            // Kolla att boxens ovansida faktiskt pekar uppåt (ellipsen vilar på en "golv-yta").
             Vector2D[] corners = GetBoxCorners(box);
 
-            // Hitta boxens ovansida.
             float bestDot = float.MinValue;
-            int bestEdge = -1;
 
             for (int i = 0; i < 4; i++)
             {
                 Vector2D edge = corners[(i + 1) % 4] - corners[i];
-
-                Vector2D outward =
-                    new Vector2D(edge.Y, -edge.X).Normalized();
+                Vector2D outward = new Vector2D(edge.Y, -edge.X).Normalized();
 
                 float dot = Vector2D.Dot(outward, down * -1f);
 
                 if (dot > bestDot)
-                {
                     bestDot = dot;
-                    bestEdge = i;
-                }
             }
 
-            if (bestEdge < 0 || bestDot < 0.5f)
+            if (bestDot < 0.5f)
                 return;
 
-            Vector2D A = corners[bestEdge];
-            Vector2D B = corners[(bestEdge + 1) % 4];
+            // Ellipsens kontaktpunkt = dess stödpunkt i gravitationens riktning.
+            float cos = MathF.Cos(ellipse.Rotation);
+            float sin = MathF.Sin(ellipse.Rotation);
 
-            Vector2D tangent = (B - A).Normalized();
+            float localX = down.X * cos + down.Y * sin;
+            float localY = -down.X * sin + down.Y * cos;
 
-            float position = Vector2D.Dot(ellipse.Position - A, tangent);
-            float edgeLength = (B - A).Length();
+            float a = ellipse.HalfWidth;
+            float b = ellipse.HalfHeight;
 
-            // Välj närmaste hörn som rotationspunkt.
-            Vector2D pivot;
+            float denominator = MathF.Sqrt(
+                a * a * localX * localX +
+                b * b * localY * localY);
 
-            if (position < edgeLength / 2f)
-            {
-                pivot = A;
-            }
-            else
-            {
-                pivot = B;
-            }
+            if (denominator < 0.0001f)
+                return;
 
-            // Avstånd från rotationspunkten till ovalens tyngdpunkt.
+            float supportX = a * a * localX / denominator;
+            float supportY = b * b * localY / denominator;
+
+            Vector2D support = new Vector2D(
+                supportX * cos - supportY * sin,
+                supportX * sin + supportY * cos);
+
+            Vector2D pivot = ellipse.Position + support;
+
+            // Avstånd från kontaktpunkten till tyngdpunkten.
             Vector2D r = ellipse.Position - pivot;
 
-            // Gravitationens moment runt rotationspunkten.
+            // Gravitationens moment runt kontaktpunkten (kan vara positivt ELLER negativt).
             Vector2D gravityForce = Gravity * ellipse.Mass;
             float torque = Cross(r, gravityForce);
-
 
             float pivotInertia =
                 ellipse.Inertia +
@@ -813,24 +786,21 @@ namespace _2d_fysik_motor
 
             if (pivotInertia < 0.0001f)
                 return;
+
             float angularAcceleration = torque / pivotInertia;
 
-
-            // Motverkar rotationen och tar bort energi över tid.
+            // Dämpning så att den gungar till ro.
             const float damping = 1.5f;
-
-            angularAcceleration -=
-                ellipse.AngularVelocity * damping;
+            angularAcceleration -= ellipse.AngularVelocity * damping;
 
             float deltaOmega = angularAcceleration * deltaTime;
 
             ellipse.AngularVelocity += deltaOmega;
 
-            // Behåll rotationspunktens hastighet.
+            // Håll kontaktpunktens hastighet oförändrad.
             ellipse.Velocity += new Vector2D(
                 -deltaOmega * r.Y,
-                deltaOmega * r.X
-            );
+                deltaOmega * r.X);
         }
 
 
