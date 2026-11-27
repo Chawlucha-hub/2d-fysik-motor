@@ -1,10 +1,10 @@
 ﻿using Raylib_cs;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Text;
 using System.Threading.Tasks;
+using System;
 using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace _2d_fysik_motor
@@ -16,10 +16,12 @@ namespace _2d_fysik_motor
         public List<PhysicsObject> Bodies { get; } = new List<PhysicsObject>();
 
         // Gravitationsacceleration i världens koordinater.
-        public Vector2D Gravity { get; set; } = new Vector2D(0, 980f); // Standard-gravitation
+        // Standard-gravitation
+        public Vector2D Gravity { get; set; } = new Vector2D(0, 980f);
 
         // Statiska väggar som håller kropparna inom fönstrets gränser.
-        private readonly List<PhysicsObject> _screenWalls = new List<PhysicsObject>();
+        private readonly List<PhysicsObject> _screenWalls =
+            new List<PhysicsObject>();
 
         // Sparar fönstrets senaste storlek så väggarna bara byggs om vid behov.
         private float _wallScreenWidth = float.NaN;
@@ -27,10 +29,18 @@ namespace _2d_fysik_motor
 
         private HashSet<PhysicsObject> gravityRotatedThisStep = new();
 
-        // Skapar en kropp med nollrotation, lägger till den i världen och returnerar den.
-        public PhysicsObject AddBody(Vector2D position, float mass, float friction, float? radius, float? width, float? height, ObjectType objectType)
+        // Skapar en kropp med nollrotation,
+        // lägger till den i världen och returnerar den.
+        public PhysicsObject AddBody(
+                Vector2D position, float mass, float friction, float? radius,
+                float? width, float? height, ObjectType objectType)
         {
-            PhysicsObject body = new PhysicsObject(position, mass, friction, 0f, radius, width.GetValueOrDefault(), height.GetValueOrDefault(), objectType);
+            PhysicsObject body = new PhysicsObject(
+                    position, mass, friction, 0f, radius,
+                    width.GetValueOrDefault(),
+                    height.GetValueOrDefault(),
+                    objectType
+                    );
             Bodies.Add(body);
             return body;
         }
@@ -46,13 +56,15 @@ namespace _2d_fysik_motor
             // Lägg på gravitation och integrera varje kropps rörelse.
             foreach (var body in Bodies)
             {
-                // Omvandlar gravitationsaccelerationen till kraft med F = m * a.
+                // Omvandlar gravitationsaccelerationen till kraft
+                // med F = m * a.
                 body.AddForce(Gravity * body.Mass);
 
                 body.Update(deltaTime);
             }
 
-            // Testar varje par av kroppar en gång och löser eventuella kollisioner.
+            // Testar varje par av kroppar en gång
+            // och löser eventuella kollisioner.
             for (int i = 0; i < Bodies.Count; i++)
             {
                 for (int j = i + 1; j < Bodies.Count; j++)
@@ -60,9 +72,14 @@ namespace _2d_fysik_motor
                     PhysicsObject a = Bodies[i];
                     PhysicsObject b = Bodies[j];
 
-                    if (TryGetCollision(a, b, out Vector2D normal, out float penetration, out Vector2D contactPoint))
+                    if (TryGetCollision(
+                                a, b, out Vector2D normal,
+                                out float penetration,
+                                out Vector2D contactPoint))
                     {
-                        ResolveCollision(a, b, normal, penetration, contactPoint, deltaTime);
+                        ResolveCollision(a, b, normal, penetration,
+                                contactPoint, deltaTime
+                                );
                     }
                 }
             }
@@ -72,8 +89,16 @@ namespace _2d_fysik_motor
             {
                 foreach (PhysicsObject wall in _screenWalls)
                 {
-                    if (TryGetCollision(body, wall, out Vector2D normal, out float penetration, out Vector2D contactPoint))
-                        ResolveCollision(body, wall, normal, penetration, contactPoint, deltaTime);
+                    if (TryGetCollision(
+                                body, wall, out Vector2D normal,
+                                out float penetration,
+                                out Vector2D contactPoint))
+                    {
+                        ResolveCollision(
+                                body, wall, normal, penetration, contactPoint,
+                                deltaTime
+                                );
+                    }
                 }
             }
         }
@@ -86,19 +111,35 @@ namespace _2d_fysik_motor
 
             const float thickness = 20f;
             _screenWalls.Clear();
-            _screenWalls.Add(new PhysicsObject(new Vector2D(-thickness / 2f, height / 2f), 0f, 1f, 0f, null, thickness, height + thickness * 2f, ObjectType.Box));
-            _screenWalls.Add(new PhysicsObject(new Vector2D(width + thickness / 2f, height / 2f), 0f, 1f, 0f, null, thickness, height + thickness * 2f, ObjectType.Box));
-            _screenWalls.Add(new PhysicsObject(new Vector2D(width / 2f, -thickness / 2f), 0f, 1f, 0f, null, width + thickness * 2f, thickness, ObjectType.Box));
-            _screenWalls.Add(new PhysicsObject(new Vector2D(width / 2f, height + thickness / 2f), 0f, 1f, 0f, null, width + thickness * 2f, thickness, ObjectType.Box));
+            _screenWalls.Add(new PhysicsObject(new Vector2D
+                        (-thickness / 2f, height / 2f),
+                        0f, 1f, 0f, null, thickness,
+                        height + thickness * 2f, ObjectType.Box
+                        ));
+            _screenWalls.Add(new PhysicsObject(
+                        new Vector2D(width + thickness / 2f, height / 2f),
+                        0f, 1f, 0f, null, thickness,
+                        height + thickness * 2f, ObjectType.Box
+                        ));
+            _screenWalls.Add(new PhysicsObject(
+                        new Vector2D(width / 2f, -thickness / 2f),
+                        0f, 1f, 0f, null,
+                        width + thickness * 2f, thickness, ObjectType.Box
+                        ));
+            _screenWalls.Add(new PhysicsObject(
+                        new Vector2D(width / 2f, height + thickness / 2f),
+                        0f, 1f, 0f, null,
+                        width + thickness * 2f, thickness, ObjectType.Box
+                        ));
             _wallScreenWidth = width;
             _wallScreenHeight = height;
         }
 
-
-
-
-        // Korrigerar överlappning och beräknar kollisionsimpulser med studs och friktion.
-        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint, float deltaTime)
+        // Korrigerar överlappning och beräknar kollisionsimpulser
+        // med studs och friktion.
+        private void ResolveCollision(PhysicsObject a, PhysicsObject b,
+                Vector2D normal, float penetration, Vector2D contactPoint,
+                float deltaTime)
         {
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
@@ -120,7 +161,6 @@ namespace _2d_fysik_motor
             if (!a.IsStatic) a.Position -= correction * a.InverseMass;
             if (!b.IsStatic) b.Position += correction * b.InverseMass;
 
-
             if (a.objectType != b.objectType)
             {
                 PhysicsObject ellipse =
@@ -137,7 +177,6 @@ namespace _2d_fysik_motor
                 }
             }
 
-
             if (velocityAlongNormal >= 0f)
                 return;
 
@@ -150,9 +189,13 @@ namespace _2d_fysik_motor
             if (normalDenominator <= 0f)
                 return;
 
-            // Dämpar studs vid låga hastigheter för att undvika små, oönskade studs.
-            float restitution = Math.Clamp(MathF.Min(a.Restitution, b.Restitution), 0f, 1f);
-            float normalImpulseMagnitude = -(1f + restitution) * velocityAlongNormal / normalDenominator;
+            // Dämpar studs vid låga hastigheter
+            // för att undvika små, oönskade studs.
+            float restitution = Math.Clamp(
+                    MathF.Min(a.Restitution, b.Restitution), 0f, 1f
+                    );
+            float normalImpulseMagnitude =
+                -(1f + restitution) * velocityAlongNormal / normalDenominator;
             Vector2D normalImpulse = normal * normalImpulseMagnitude;
 
             ApplyCollisionImpulse(a, -1f, rA, normalImpulse);
@@ -162,7 +205,8 @@ namespace _2d_fysik_motor
             velocityB = GetVelocityAtPoint(b, rB);
             relativeVelocity = velocityB - velocityA;
 
-            // Friktionen verkar längs tangenten och begränsas av normalimpulsens storlek.
+            // Friktionen verkar längs tangenten
+            // och begränsas av normalimpulsens storlek.
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
             float crossTangentA = Cross(rA, tangent);
             float crossTangentB = Cross(rB, tangent);
@@ -174,8 +218,14 @@ namespace _2d_fysik_motor
                 ? -Vector2D.Dot(relativeVelocity, tangent) / tangentDenominator
                 : 0f;
             float frictionCoefficient = MathF.Sqrt(a.Friction * b.Friction);
-            float maxFrictionImpulse = normalImpulseMagnitude * frictionCoefficient;
-            frictionImpulseMagnitude = Math.Clamp(frictionImpulseMagnitude, -maxFrictionImpulse, maxFrictionImpulse);
+            float maxFrictionImpulse =
+                normalImpulseMagnitude * frictionCoefficient;
+            frictionImpulseMagnitude = Math.Clamp(
+                    frictionImpulseMagnitude,
+                    -maxFrictionImpulse,
+                    maxFrictionImpulse
+                    );
+
             Vector2D frictionImpulse = tangent * frictionImpulseMagnitude;
 
             ApplyCollisionImpulse(a, -1f, rA, frictionImpulse);
@@ -183,22 +233,29 @@ namespace _2d_fysik_motor
         }
 
         // Beräknar 2D-kryssprodukten som ett skalärt värde.
-        private static float Cross(Vector2D a, Vector2D b) => a.X * b.Y - a.Y * b.X;
+        private static float Cross(Vector2D a, Vector2D b) =>
+            a.X * b.Y - a.Y * b.X;
 
         // Beräknar kroppens hastighet vid en punkt med hänsyn till rotation.
-        private static Vector2D GetVelocityAtPoint(PhysicsObject body, Vector2D offset)
+        private static Vector2D GetVelocityAtPoint(PhysicsObject body,
+                Vector2D offset)
         {
-            return body.Velocity + new Vector2D(-body.AngularVelocity * offset.Y, body.AngularVelocity * offset.X);
+            return body.Velocity + new Vector2D(
+                    -body.AngularVelocity * offset.Y,
+                    body.AngularVelocity * offset.X
+                    );
         }
 
         // Applicerar en impuls på både kroppens linjära och roterande rörelse.
-        private static void ApplyCollisionImpulse(PhysicsObject body, float direction, Vector2D offset, Vector2D impulse)
+        private static void ApplyCollisionImpulse(PhysicsObject body,
+                float direction, Vector2D offset, Vector2D impulse)
         {
             if (body.IsStatic)
                 return;
 
             body.Velocity += impulse * (direction * body.InverseMass);
-            body.AngularVelocity += direction * Cross(offset, impulse) * body.InverseInertia;
+            body.AngularVelocity +=
+                direction * Cross(offset, impulse) * body.InverseInertia;
         }
 
         // Ritar alla kroppar och visar deras hastighetsvektorer.
@@ -216,34 +273,34 @@ namespace _2d_fysik_motor
                     case ObjectType.Box:
 
                         Rectangle rectangle = new Rectangle(
-                            body.Position.X,
-                            body.Position.Y,
-                            body.HalfWidth * 2f,
-                            body.HalfHeight * 2f
-                        );
+                                body.Position.X,
+                                body.Position.Y,
+                                body.HalfWidth * 2f,
+                                body.HalfHeight * 2f
+                                );
 
                         Vector2 origin = new Vector2(
-                            body.HalfWidth,
-                            body.HalfHeight
-                        );
+                                body.HalfWidth,
+                                body.HalfHeight
+                                );
 
                         Raylib.DrawRectanglePro(
-                            rectangle,
-                            origin,
-                            body.Rotation * (180f / MathF.PI),
-                            Color.DarkPurple
-                        );
+                                rectangle,
+                                origin,
+                                body.Rotation * (180f / MathF.PI),
+                                Color.DarkPurple
+                                );
 
                         break;
                 }
 
                 Raylib.DrawLine(
-                    (int)body.Position.X,
-                    (int)body.Position.Y,
-                    (int)(body.Position.X + body.Velocity.X * 0.1f),
-                    (int)(body.Position.Y + body.Velocity.Y * 0.1f),
-                    Color.Green
-                );
+                        (int)body.Position.X,
+                        (int)body.Position.Y,
+                        (int)(body.Position.X + body.Velocity.X * 0.1f),
+                        (int)(body.Position.Y + body.Velocity.Y * 0.1f),
+                        Color.Green
+                        );
             }
         }
 
@@ -260,9 +317,9 @@ namespace _2d_fysik_motor
 
             // Börja vid den högra ändpunkten.
             Vector2D previous = new Vector2D(
-                body.Position.X + a * cos,
-                body.Position.Y + a * sin
-            );
+                    body.Position.X + a * cos,
+                    body.Position.Y + a * sin
+                    );
 
             for (int i = 1; i <= segments; i++)
             {
@@ -275,52 +332,50 @@ namespace _2d_fysik_motor
 
                 // Rotera punkten och flytta den till världens position.
                 Vector2D current = new Vector2D(
-                    body.Position.X + localX * cos - localY * sin,
-                    body.Position.Y + localX * sin + localY * cos
-                );
-
-                
+                        body.Position.X + localX * cos - localY * sin,
+                        body.Position.Y + localX * sin + localY * cos
+                        );
 
                 // Rita bågens kant.
                 Raylib.DrawLine(
-                    (int)previous.X,
-                    (int)previous.Y,
-                    (int)current.X,
-                    (int)current.Y,
-                    Color.DarkPurple
-                );
+                        (int)previous.X,
+                        (int)previous.Y,
+                        (int)current.X,
+                        (int)current.Y,
+                        Color.DarkPurple
+                        );
 
                 previous = current;
             }
 
             // Rita den raka undersidan.
             Vector2D point1 = new Vector2D(
-                body.Position.X - a * cos,
-                body.Position.Y - a * sin
-            );
+                    body.Position.X - a * cos,
+                    body.Position.Y - a * sin
+                    );
 
             Vector2D point2 = new Vector2D(
-                body.Position.X + a * cos,
-                body.Position.Y + a * sin
-            );
+                    body.Position.X + a * cos,
+                    body.Position.Y + a * sin
+                    );
 
             Raylib.DrawLine(
-                (int)point1.X,
-                (int)point1.Y,
-                (int)point2.X,
-                (int)point2.Y,
-                Color.DarkPurple
-            );
+                    (int)point1.X,
+                    (int)point1.Y,
+                    (int)point2.X,
+                    (int)point2.Y,
+                    Color.DarkPurple
+                    );
         }
 
-        // Skapar punkter för respektive form och testar om kropparna överlappar.
-
+        // Skapar punkter för respektive form
+        // och testar om kropparna överlappar.
         private bool TryGetCollision(
-     PhysicsObject a,
-     PhysicsObject b,
-     out Vector2D normal,
-     out float penetration,
-     out Vector2D contactPoint)
+                PhysicsObject a,
+                PhysicsObject b,
+                out Vector2D normal,
+                out float penetration,
+                out Vector2D contactPoint)
         {
             normal = Vector2D.Zero;
             penetration = 0f;
@@ -335,26 +390,26 @@ namespace _2d_fysik_motor
                 : GetBoxCorners(b);
 
             return TryGetPolygonCollision(
-                pointsA, pointsB,
-                pointsA, pointsB,
-                out normal,
-                out penetration,
-                out contactPoint,
-                a, b);
+                    pointsA, pointsB,
+                    pointsA, pointsB,
+                    out normal,
+                    out penetration,
+                    out contactPoint,
+                    a, b);
         }
 
-
-        // Använder separerande axlar för att hitta överlappning, minsta penetration och normal.
+        // Använder separerande axlar för att hitta överlappning,
+        // minsta penetration och normal.
         private bool TryGetPolygonCollision(
-    Vector2D[] pointsA,
-    Vector2D[] pointsB,
-    Vector2D[] CircelpintsA,
-    Vector2D[] CircelpintsB,
-    out Vector2D normal,
-    out float penetration,
-    out Vector2D contactPoint,
-    PhysicsObject a,
-    PhysicsObject b)
+                Vector2D[] pointsA,
+                Vector2D[] pointsB,
+                Vector2D[] CircelpintsA,
+                Vector2D[] CircelpintsB,
+                out Vector2D normal,
+                out float penetration,
+                out Vector2D contactPoint,
+                PhysicsObject a,
+                PhysicsObject b)
         {
             normal = Vector2D.Zero;
             penetration = 0f;
@@ -364,7 +419,7 @@ namespace _2d_fysik_motor
             // CIRKEL MOT CIRKEL
             // ---------------------------------
             if (a.objectType == ObjectType.Ball &&
-     b.objectType == ObjectType.Ball)
+                    b.objectType == ObjectType.Ball)
             {
                 Vector2D direction = b.Position - a.Position;
 
@@ -416,15 +471,15 @@ namespace _2d_fysik_motor
 
                 // Närmaste punkt på boxen.
                 float closestX = Math.Clamp(
-                    localX, -box.HalfWidth, box.HalfWidth);
+                        localX, -box.HalfWidth, box.HalfWidth);
 
                 float closestY = Math.Clamp(
-                    localY, -box.HalfHeight, box.HalfHeight);
+                        localY, -box.HalfHeight, box.HalfHeight);
 
                 // Omvandla punkten till världens koordinater.
                 Vector2D closestPoint = box.Position + new Vector2D(
-                    closestX * cos - closestY * sin,
-                    closestX * sin + closestY * cos);
+                        closestX * cos - closestY * sin,
+                        closestX * sin + closestY * cos);
 
                 Vector2D difference = closestPoint - ellipseCenter;
                 float distance = difference.Length();
@@ -435,7 +490,8 @@ namespace _2d_fysik_motor
                 {
                     Vector2D direction = difference / distance;
 
-                    float ellipseExtent = GetEllipseSupportRadius(circle, direction);
+                    float ellipseExtent =
+                        GetEllipseSupportRadius(circle, direction);
 
                     if (distance >= ellipseExtent)
                         return false;
@@ -456,30 +512,32 @@ namespace _2d_fysik_motor
                         float sign = localX >= 0f ? 1f : -1f;
 
                         outward = new Vector2D(
-                            sign * cos,
-                            sign * sin);
+                                sign * cos,
+                                sign * sin);
 
                         closestPoint = box.Position + new Vector2D(
-                            sign * box.HalfWidth * cos - localY * sin,
-                            sign * box.HalfWidth * sin + localY * cos);
+                                sign * box.HalfWidth * cos - localY * sin,
+                                sign * box.HalfWidth * sin + localY * cos);
 
                         penetration =
-                            distanceX + GetEllipseSupportRadius(circle, outward);
+                            distanceX +
+                            GetEllipseSupportRadius(circle, outward);
                     }
                     else
                     {
                         float sign = localY >= 0f ? 1f : -1f;
 
                         outward = new Vector2D(
-                            -sign * sin,
-                            sign * cos);
+                                -sign * sin,
+                                sign * cos);
 
                         closestPoint = box.Position + new Vector2D(
-                            localX * cos - sign * box.HalfHeight * sin,
-                            localX * sin + sign * box.HalfHeight * cos);
+                                localX * cos - sign * box.HalfHeight * sin,
+                                localX * sin + sign * box.HalfHeight * cos);
 
                         penetration =
-                            distanceY + GetEllipseSupportRadius(circle, outward);
+                            distanceY +
+                            GetEllipseSupportRadius(circle, outward);
                     }
 
                     ellipseToBox = outward * -1f;
@@ -517,10 +575,10 @@ namespace _2d_fysik_motor
                         continue;
 
                     ProjectBox(pointsA, axis,
-                        out float minA, out float maxA);
+                            out float minA, out float maxA);
 
                     ProjectBox(pointsB, axis,
-                        out float minB, out float maxB);
+                            out float minB, out float maxB);
 
                     float overlap =
                         MathF.Min(maxA, maxB) - MathF.Max(minA, minB);
@@ -557,26 +615,32 @@ namespace _2d_fysik_motor
         }
 
         // Väljer ett ungefärligt kontaktläge mellan kropparnas stödytor.
-        private Vector2D GetContactPoint(Vector2D[] pointsA, Vector2D[] pointsB, Vector2D normal)
+        private Vector2D GetContactPoint(Vector2D[] pointsA,
+                Vector2D[] pointsB, Vector2D normal)
         {
             Vector2D tangent = new Vector2D(-normal.Y, normal.X);
-            GetSupportFeature(pointsA, normal, tangent, out float minTangentA, out float maxTangentA, out float normalA);
-            GetSupportFeature(pointsB, normal * -1f, tangent, out float minTangentB, out float maxTangentB, out float normalB);
+            GetSupportFeature(
+                    pointsA, normal, tangent, out float minTangentA,
+                    out float maxTangentA, out float normalA);
+
+            GetSupportFeature(
+                    pointsB, normal * -1f, tangent, out float minTangentB,
+                    out float maxTangentB, out float normalB);
 
             float overlapMin = MathF.Max(minTangentA, minTangentB);
             float overlapMax = MathF.Min(maxTangentA, maxTangentB);
             float tangentPosition = overlapMin <= overlapMax
                 ? (overlapMin + overlapMax) * 0.5f
-                : (minTangentA + maxTangentA + minTangentB + maxTangentB) * 0.25f;
+                : (minTangentA + maxTangentA + minTangentB + maxTangentB) *
+                0.25f;
 
-            return tangent * tangentPosition + normal * ((normalA + normalB) * 0.5f);
+            return tangent * tangentPosition + normal *
+                ((normalA + normalB) * 0.5f);
         }
 
-        
-
         private float GetEllipseRadiusInDirection(
-    PhysicsObject body,
-    Vector2D direction)
+                PhysicsObject body,
+                Vector2D direction)
         {
             float cos = MathF.Cos(body.Rotation);
             float sin = MathF.Sin(body.Rotation);
@@ -589,8 +653,8 @@ namespace _2d_fysik_motor
             float b = body.HalfHeight;
 
             float denominator = MathF.Sqrt(
-                (localX * localX) / (a * a) +
-                (localY * localY) / (b * b));
+                    (localX * localX) / (a * a) +
+                    (localY * localY) / (b * b));
 
             if (denominator < 0.0001f)
                 return 0f;
@@ -598,29 +662,34 @@ namespace _2d_fysik_motor
             return 1f / denominator;
         }
 
-        // Hämtar stödytans ytterpunkter längs tangenten och dess läge längs normalen.
+        // Hämtar stödytans ytterpunkter längs tangenten
+        // och dess läge längs normalen.
         private void GetSupportFeature(
-            Vector2D[] points,
-            Vector2D supportDirection,
-            Vector2D tangent,
-            out float minTangent,
-            out float maxTangent,
-            out float normalPosition)
+                Vector2D[] points,
+                Vector2D supportDirection,
+                Vector2D tangent,
+                out float minTangent,
+                out float maxTangent,
+                out float normalPosition)
         {
             Vector2D normal = new Vector2D(tangent.Y, -tangent.X);
             float bestValue = Vector2D.Dot(points[0], supportDirection);
             for (int i = 1; i < points.Length; i++)
-                bestValue = MathF.Max(bestValue, Vector2D.Dot(points[i], supportDirection));
+                bestValue = MathF.Max(
+                        bestValue, Vector2D.Dot(points[i], supportDirection)
+                        );
 
             minTangent = float.MaxValue;
             maxTangent = float.MinValue;
             normalPosition = 0f;
             int supportCount = 0;
 
-            for (int i = 0; i < points.Length; i++)
-            {
-                if (bestValue - Vector2D.Dot(points[i], supportDirection) > 0.001f)
+            for (int i = 0; i < points.Length; i++){
+                if (
+                        bestValue - Vector2D.Dot(points[i], supportDirection)
+                        > 0.001f){
                     continue;
+                }
 
                 float tangentProjection = Vector2D.Dot(points[i], tangent);
                 minTangent = MathF.Min(minTangent, tangentProjection);
@@ -632,8 +701,10 @@ namespace _2d_fysik_motor
             normalPosition /= supportCount;
         }
 
-        // Projicerar polygonens punkter på en axel och hittar min- och maxvärdet.
-        private void ProjectBox(Vector2D[] corners, Vector2D axis, out float min, out float max)
+        // Projicerar polygonens punkter på en axel
+        // och hittar min- och maxvärdet.
+        private void ProjectBox(Vector2D[] corners, Vector2D axis, out float
+                min, out float max)
         {
             min = Vector2D.Dot(corners[0], axis);
             max = min;
@@ -659,20 +730,20 @@ namespace _2d_fysik_motor
             float sin = MathF.Sin(rotation);
 
             Vector2D point1 = new Vector2D(
-                body.Position.X - radius * cos,
-                body.Position.Y - radius * sin
-            );
+                    body.Position.X - radius * cos,
+                    body.Position.Y - radius * sin
+                    );
 
             Vector2D point2 = new Vector2D(
-                body.Position.X + radius * cos,
-                body.Position.Y + radius * sin
-            );
+                    body.Position.X + radius * cos,
+                    body.Position.Y + radius * sin
+                    );
 
             return new Vector2D[] { point1, point2 };
         }
         private float GetEllipseSupportRadius(
-    PhysicsObject body,
-    Vector2D direction)
+                PhysicsObject body,
+                Vector2D direction)
         {
             float cos = MathF.Cos(body.Rotation);
             float sin = MathF.Sin(body.Rotation);
@@ -685,14 +756,14 @@ namespace _2d_fysik_motor
             float b = body.HalfHeight;
 
             return MathF.Sqrt(
-                a * a * localX * localX +
-                b * b * localY * localY
-            );
+                    a * a * localX * localX +
+                    b * b * localY * localY
+                    );
         }
 
         // Ellipsens ytterpunkt i en given riktning (världskoordinater).
-        private Vector2D GetEllipseSupportPoint(PhysicsObject body, Vector2D direction)
-        {
+        private Vector2D GetEllipseSupportPoint(
+                PhysicsObject body, Vector2D direction){
             float cos = MathF.Cos(body.Rotation);
             float sin = MathF.Sin(body.Rotation);
 
@@ -702,7 +773,9 @@ namespace _2d_fysik_motor
             float a = body.HalfWidth;
             float b = body.HalfHeight;
 
-            float h = MathF.Sqrt(a * a * localX * localX + b * b * localY * localY);
+            float h = MathF.Sqrt(
+                    a * a * localX * localX + b * b * localY * localY
+                    );
 
             if (h < 0.0001f)
                 return body.Position;
@@ -711,15 +784,14 @@ namespace _2d_fysik_motor
             float sy = b * b * localY / h;
 
             return body.Position + new Vector2D(
-                sx * cos - sy * sin,
-                sx * sin + sy * cos);
+                    sx * cos - sy * sin,
+                    sx * sin + sy * cos);
         }
 
-
         private void ApplyGravityRotation(
-    PhysicsObject ellipse,
-    PhysicsObject box,
-    float deltaTime)
+                PhysicsObject ellipse,
+                PhysicsObject box,
+                float deltaTime)
         {
             float gravityLength = Gravity.Length();
 
@@ -728,7 +800,8 @@ namespace _2d_fysik_motor
 
             Vector2D down = Gravity / gravityLength;
 
-            // Kolla att boxens ovansida faktiskt pekar uppåt (ellipsen vilar på en "golv-yta").
+            // Kolla att boxens ovansida faktiskt pekar uppåt
+            // (ellipsen vilar på en "golv-yta").
             Vector2D[] corners = GetBoxCorners(box);
 
             float bestDot = float.MinValue;
@@ -747,7 +820,8 @@ namespace _2d_fysik_motor
             if (bestDot < 0.5f)
                 return;
 
-            // Ellipsens kontaktpunkt = dess stödpunkt i gravitationens riktning.
+            // Ellipsens kontaktpunkt = dess stödpunkt i
+            // gravitationens riktning.
             float cos = MathF.Cos(ellipse.Rotation);
             float sin = MathF.Sin(ellipse.Rotation);
 
@@ -758,8 +832,8 @@ namespace _2d_fysik_motor
             float b = ellipse.HalfHeight;
 
             float denominator = MathF.Sqrt(
-                a * a * localX * localX +
-                b * b * localY * localY);
+                    a * a * localX * localX +
+                    b * b * localY * localY);
 
             if (denominator < 0.0001f)
                 return;
@@ -768,15 +842,16 @@ namespace _2d_fysik_motor
             float supportY = b * b * localY / denominator;
 
             Vector2D support = new Vector2D(
-                supportX * cos - supportY * sin,
-                supportX * sin + supportY * cos);
+                    supportX * cos - supportY * sin,
+                    supportX * sin + supportY * cos);
 
             Vector2D pivot = ellipse.Position + support;
 
             // Avstånd från kontaktpunkten till tyngdpunkten.
             Vector2D r = ellipse.Position - pivot;
 
-            // Gravitationens moment runt kontaktpunkten (kan vara positivt ELLER negativt).
+            // Gravitationens moment runt kontaktpunkten
+            // (kan vara positivt ELLER negativt).
             Vector2D gravityForce = Gravity * ellipse.Mass;
             float torque = Cross(r, gravityForce);
 
@@ -799,14 +874,9 @@ namespace _2d_fysik_motor
 
             // Håll kontaktpunktens hastighet oförändrad.
             ellipse.Velocity += new Vector2D(
-                -deltaOmega * r.Y,
-                deltaOmega * r.X);
+                    -deltaOmega * r.Y,
+                    deltaOmega * r.X);
         }
-
-
-
-
-
 
         // Beräknar den roterade boxens fyra hörn i världens koordinater.
         private Vector2D[] GetBoxCorners(PhysicsObject body)
@@ -819,20 +889,40 @@ namespace _2d_fysik_motor
             float width = body.HalfWidth * 2f;
             float height = body.HalfHeight * 2f;
 
-            Vector2D corner1 = new Vector2D(body.Position.X + (-width / 2f * cos - -height / 2f * sin), body.Position.Y + (-width / 2f * sin + -height / 2f * cos));
+            Vector2D corner1 = new Vector2D(
+                    body.Position.X +
+                    (-width / 2f * cos - -height / 2f * sin),
+                    body.Position.Y +
+                    (-width / 2f * sin + -height / 2f * cos)
+                    );
 
-            Vector2D corner2 = new Vector2D(body.Position.X + (width / 2f * cos - -height / 2f * sin), body.Position.Y + (width / 2f * sin + -height / 2f * cos));
+            Vector2D corner2 = new Vector2D(
+                    body.Position.X +
+                    (width / 2f * cos - -height / 2f * sin),
+                    body.Position.Y +
+                    (width / 2f * sin + -height / 2f * cos)
+                    );
 
-            Vector2D corner3 = new Vector2D(body.Position.X + (width / 2f * cos - height / 2f * sin), body.Position.Y + (width / 2f * sin + height / 2f * cos));
+            Vector2D corner3 = new Vector2D(
+                    body.Position.X +
+                    (width / 2f * cos - height / 2f * sin),
+                    body.Position.Y +
+                    (width / 2f * sin + height / 2f * cos)
+                    );
 
-            Vector2D corner4 = new Vector2D(body.Position.X + (-width / 2f * cos - height / 2f * sin), body.Position.Y + (-width / 2f * sin + height / 2f * cos));
+            Vector2D corner4 = new Vector2D(
+                    body.Position.X +
+                    (-width / 2f * cos - height / 2f * sin),
+                    body.Position.Y +
+                    (-width / 2f * sin + height / 2f * cos)
+                    );
 
             return new Vector2D[]
             {
-            corner1,
-            corner2,
-            corner3,
-            corner4
+                corner1,
+                corner2,
+                corner3,
+                corner4
             };
         }
     }
