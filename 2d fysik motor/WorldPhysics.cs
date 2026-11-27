@@ -25,6 +25,8 @@ namespace _2d_fysik_motor
         private float _wallScreenWidth = float.NaN;
         private float _wallScreenHeight = float.NaN;
 
+        private HashSet<PhysicsObject> gravityRotatedThisStep = new();
+
         // Skapar en kropp med nollrotation, lägger till den i världen och returnerar den.
         public PhysicsObject AddBody(Vector2D position, float mass, float friction, float? radius, float? width, float? height, ObjectType objectType)
         {
@@ -38,6 +40,8 @@ namespace _2d_fysik_motor
         {
             // Säkerställer att de statiska väggarna matchar fönstrets storlek.
             UpdateScreenWalls(screenWidth, screenHeight);
+
+            gravityRotatedThisStep.Clear();
 
             // Lägg på gravitation och integrera varje kropps rörelse.
             foreach (var body in Bodies)
@@ -125,12 +129,12 @@ namespace _2d_fysik_motor
                 PhysicsObject box =
                     a.objectType == ObjectType.Box ? a : b;
 
-                ApplyGravityRotation(
-                    ellipse,
-                    box,
-                    contactPoint,
-                    deltaTime
-                );
+                if (!gravityRotatedThisStep.Contains(ellipse))
+                {
+                    ApplyGravityRotation(ellipse, box, deltaTime);
+
+                    gravityRotatedThisStep.Add(ellipse);
+                }
             }
 
 
@@ -735,54 +739,102 @@ namespace _2d_fysik_motor
         }
 
 
+
+
+
         private void ApplyGravityRotation(
-            PhysicsObject ellipse,
-            PhysicsObject box,
-            Vector2D contactPoint,
-            float deltaTime)
+     PhysicsObject ellipse,
+     PhysicsObject box,
+     float deltaTime)
         {
-            GetEllipseSupportPoints(
-                ellipse,
-                out Vector2D pointA,
-                out Vector2D pointB
-            );
+            float gravityLength = Gravity.Length();
 
-            Vector2D down = Gravity.Normalized();
+            if (gravityLength < 0.0001f)
+                return;
 
-            // Boxens kontaktläge längs dess ovansida.
-            Vector2D r = ellipse.Position - contactPoint;
+            Vector2D down = Gravity / gravityLength;
 
-            // Gravitationskraften på ovalen.
+            Vector2D[] corners = GetBoxCorners(box);
+
+            // Hitta boxens ovansida.
+            float bestDot = float.MinValue;
+            int bestEdge = -1;
+
+            for (int i = 0; i < 4; i++)
+            {
+                Vector2D edge = corners[(i + 1) % 4] - corners[i];
+
+                Vector2D outward =
+                    new Vector2D(edge.Y, -edge.X).Normalized();
+
+                float dot = Vector2D.Dot(outward, down * -1f);
+
+                if (dot > bestDot)
+                {
+                    bestDot = dot;
+                    bestEdge = i;
+                }
+            }
+
+            if (bestEdge < 0 || bestDot < 0.5f)
+                return;
+
+            Vector2D A = corners[bestEdge];
+            Vector2D B = corners[(bestEdge + 1) % 4];
+
+            Vector2D tangent = (B - A).Normalized();
+
+            float position = Vector2D.Dot(ellipse.Position - A, tangent);
+            float edgeLength = (B - A).Length();
+
+            // Välj närmaste hörn som rotationspunkt.
+            Vector2D pivot;
+
+            if (position < edgeLength / 2f)
+            {
+                pivot = A;
+            }
+            else
+            {
+                pivot = B;
+            }
+
+            // Avstånd från rotationspunkten till ovalens tyngdpunkt.
+            Vector2D r = ellipse.Position - pivot;
+
+            // Gravitationens moment runt rotationspunkten.
             Vector2D gravityForce = Gravity * ellipse.Mass;
-
-            // Vridmoment runt den aktuella stödjepunkten.
             float torque = Cross(r, gravityForce);
 
-            // Tröghetsmoment runt kontaktpunkten.
-            float distance = r.Length();
 
             float pivotInertia =
                 ellipse.Inertia +
-                ellipse.Mass * distance * distance;
+                ellipse.Mass * r.Length() * r.Length();
 
-            if (pivotInertia <= 0.0001f)
+            if (pivotInertia < 0.0001f)
                 return;
-
-            // Gravitationens rotationsacceleration.
             float angularAcceleration = torque / pivotInertia;
 
-            // Dämpning.
-            angularAcceleration -= ellipse.AngularVelocity * 1.5f;
+
+            // Motverkar rotationen och tar bort energi över tid.
+            const float damping = 1.5f;
+
+            angularAcceleration -=
+                ellipse.AngularVelocity * damping;
 
             float deltaOmega = angularAcceleration * deltaTime;
 
             ellipse.AngularVelocity += deltaOmega;
 
+            // Behåll rotationspunktens hastighet.
             ellipse.Velocity += new Vector2D(
                 -deltaOmega * r.Y,
                 deltaOmega * r.X
             );
         }
+
+
+
 
 
 
