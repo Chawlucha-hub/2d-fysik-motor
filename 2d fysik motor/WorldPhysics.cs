@@ -62,7 +62,7 @@ namespace _2d_fysik_motor
 
                     if (TryGetCollision(a, b, out Vector2D normal, out float penetration, out Vector2D contactPoint))
                     {
-                        ResolveCollision(a, b, normal, penetration, contactPoint, deltaTime);
+                        ResolveCollision(a, b, normal, penetration, contactPoint);
                     }
                 }
             }
@@ -73,7 +73,7 @@ namespace _2d_fysik_motor
                 foreach (PhysicsObject wall in _screenWalls)
                 {
                     if (TryGetCollision(body, wall, out Vector2D normal, out float penetration, out Vector2D contactPoint))
-                        ResolveCollision(body, wall, normal, penetration, contactPoint, deltaTime);
+                        ResolveCollision(body, wall, normal, penetration, contactPoint);
                 }
             }
         }
@@ -98,16 +98,13 @@ namespace _2d_fysik_motor
 
 
         // Korrigerar överlappning och beräknar kollisionsimpulser med studs och friktion.
-        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint, float deltaTime)
+        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint)
         {
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
             if (totalInverseMass <= 0)
                 return;
 
-            if (Vector2D.Dot(b.Position - a.Position, normal) < 0f)
-                normal *= -1f;
-            // Kontaktpunktens hastighet inkluderar både rörelse och rotation.
             Vector2D rA = contactPoint - a.Position;
             Vector2D rB = contactPoint - b.Position;
             Vector2D velocityA = GetVelocityAtPoint(a, rA);
@@ -115,28 +112,13 @@ namespace _2d_fysik_motor
             Vector2D relativeVelocity = velocityB - velocityA;
             float velocityAlongNormal = Vector2D.Dot(relativeVelocity, normal);
 
-            // Fördelar positionskorrigeringen enligt kropparnas inversa massor.
-            Vector2D correction = normal * (penetration / totalInverseMass);
+            // Positionskorrigering: 80 % och en liten tillåten överlappning (slop).
+            const float correctionPercent = 0.8f;
+            const float slop = 0.5f;
+            float correctionDepth = MathF.Max(penetration - slop, 0f);
+            Vector2D correction = normal * (correctionDepth * correctionPercent / totalInverseMass);
             if (!a.IsStatic) a.Position -= correction * a.InverseMass;
             if (!b.IsStatic) b.Position += correction * b.InverseMass;
-
-
-            if (a.objectType != b.objectType)
-            {
-                PhysicsObject ellipse =
-                    a.objectType == ObjectType.Ball ? a : b;
-
-                PhysicsObject box =
-                    a.objectType == ObjectType.Box ? a : b;
-
-                if (!gravityRotatedThisStep.Contains(ellipse))
-                {
-                    ApplyGravityRotation(ellipse, box, deltaTime);
-
-                    gravityRotatedThisStep.Add(ellipse);
-                }
-            }
-
 
             if (velocityAlongNormal >= 0f)
                 return;
@@ -150,8 +132,13 @@ namespace _2d_fysik_motor
             if (normalDenominator <= 0f)
                 return;
 
-            // Dämpar studs vid låga hastigheter för att undvika små, oönskade studs.
             float restitution = Math.Clamp(MathF.Min(a.Restitution, b.Restitution), 0f, 1f);
+
+            // Vilande kontakt ska inte studsa.
+            const float restitutionThreshold = 60f;
+            if (-velocityAlongNormal < restitutionThreshold)
+                restitution = 0f;
+
             float normalImpulseMagnitude = -(1f + restitution) * velocityAlongNormal / normalDenominator;
             Vector2D normalImpulse = normal * normalImpulseMagnitude;
 
@@ -386,7 +373,7 @@ namespace _2d_fysik_motor
                 normal = direction;
                 penetration = overlap;
 
-                contactPoint = a.Position + direction * radiusA;
+                contactPoint = GetEllipseSupportPoint(a, direction);
 
                 return true;
             }
@@ -572,32 +559,7 @@ namespace _2d_fysik_motor
             return tangent * tangentPosition + normal * ((normalA + normalB) * 0.5f);
         }
 
-        
-
-        private float GetEllipseRadiusInDirection(
-    PhysicsObject body,
-    Vector2D direction)
-        {
-            float cos = MathF.Cos(body.Rotation);
-            float sin = MathF.Sin(body.Rotation);
-
-            // Riktningen omvandlas till ellipsens lokala koordinater.
-            float localX = direction.X * cos + direction.Y * sin;
-            float localY = -direction.X * sin + direction.Y * cos;
-
-            float a = body.HalfWidth;
-            float b = body.HalfHeight;
-
-            float denominator = MathF.Sqrt(
-                (localX * localX) / (a * a) +
-                (localY * localY) / (b * b));
-
-            if (denominator < 0.0001f)
-                return 0f;
-
-            return 1f / denominator;
-        }
-
+   
         // Hämtar stödytans ytterpunkter längs tangenten och dess läge längs normalen.
         private void GetSupportFeature(
             Vector2D[] points,
@@ -714,99 +676,6 @@ namespace _2d_fysik_motor
                 sx * cos - sy * sin,
                 sx * sin + sy * cos);
         }
-
-
-        private void ApplyGravityRotation(
-    PhysicsObject ellipse,
-    PhysicsObject box,
-    float deltaTime)
-        {
-            float gravityLength = Gravity.Length();
-
-            if (gravityLength < 0.0001f)
-                return;
-
-            Vector2D down = Gravity / gravityLength;
-
-            // Kolla att boxens ovansida faktiskt pekar uppåt (ellipsen vilar på en "golv-yta").
-            Vector2D[] corners = GetBoxCorners(box);
-
-            float bestDot = float.MinValue;
-
-            for (int i = 0; i < 4; i++)
-            {
-                Vector2D edge = corners[(i + 1) % 4] - corners[i];
-                Vector2D outward = new Vector2D(edge.Y, -edge.X).Normalized();
-
-                float dot = Vector2D.Dot(outward, down * -1f);
-
-                if (dot > bestDot)
-                    bestDot = dot;
-            }
-
-            if (bestDot < 0.5f)
-                return;
-
-            // Ellipsens kontaktpunkt = dess stödpunkt i gravitationens riktning.
-            float cos = MathF.Cos(ellipse.Rotation);
-            float sin = MathF.Sin(ellipse.Rotation);
-
-            float localX = down.X * cos + down.Y * sin;
-            float localY = -down.X * sin + down.Y * cos;
-
-            float a = ellipse.HalfWidth;
-            float b = ellipse.HalfHeight;
-
-            float denominator = MathF.Sqrt(
-                a * a * localX * localX +
-                b * b * localY * localY);
-
-            if (denominator < 0.0001f)
-                return;
-
-            float supportX = a * a * localX / denominator;
-            float supportY = b * b * localY / denominator;
-
-            Vector2D support = new Vector2D(
-                supportX * cos - supportY * sin,
-                supportX * sin + supportY * cos);
-
-            Vector2D pivot = ellipse.Position + support;
-
-            // Avstånd från kontaktpunkten till tyngdpunkten.
-            Vector2D r = ellipse.Position - pivot;
-
-            // Gravitationens moment runt kontaktpunkten (kan vara positivt ELLER negativt).
-            Vector2D gravityForce = Gravity * ellipse.Mass;
-            float torque = Cross(r, gravityForce);
-
-            float pivotInertia =
-                ellipse.Inertia +
-                ellipse.Mass * r.Length() * r.Length();
-
-            if (pivotInertia < 0.0001f)
-                return;
-
-            float angularAcceleration = torque / pivotInertia;
-
-            // Dämpning så att den gungar till ro.
-            const float damping = 1.5f;
-            angularAcceleration -= ellipse.AngularVelocity * damping;
-
-            float deltaOmega = angularAcceleration * deltaTime;
-
-            ellipse.AngularVelocity += deltaOmega;
-
-            // Håll kontaktpunktens hastighet oförändrad.
-            ellipse.Velocity += new Vector2D(
-                -deltaOmega * r.Y,
-                deltaOmega * r.X);
-        }
-
-
-
-
-
 
         // Beräknar den roterade boxens fyra hörn i världens koordinater.
         private Vector2D[] GetBoxCorners(PhysicsObject body)
