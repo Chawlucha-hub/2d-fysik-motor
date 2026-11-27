@@ -58,7 +58,7 @@ namespace _2d_fysik_motor
 
                     if (TryGetCollision(a, b, out Vector2D normal, out float penetration, out Vector2D contactPoint))
                     {
-                        ResolveCollision(a, b, normal, penetration, contactPoint);
+                        ResolveCollision(a, b, normal, penetration, contactPoint, deltaTime);
                     }
                 }
             }
@@ -69,7 +69,7 @@ namespace _2d_fysik_motor
                 foreach (PhysicsObject wall in _screenWalls)
                 {
                     if (TryGetCollision(body, wall, out Vector2D normal, out float penetration, out Vector2D contactPoint))
-                        ResolveCollision(body, wall, normal, penetration, contactPoint);
+                        ResolveCollision(body, wall, normal, penetration, contactPoint, deltaTime);
                 }
             }
         }
@@ -94,7 +94,7 @@ namespace _2d_fysik_motor
 
 
         // Korrigerar överlappning och beräknar kollisionsimpulser med studs och friktion.
-        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint)
+        private void ResolveCollision(PhysicsObject a, PhysicsObject b, Vector2D normal, float penetration, Vector2D contactPoint, float deltaTime)
         {
             float totalInverseMass = a.InverseMass + b.InverseMass;
 
@@ -116,7 +116,23 @@ namespace _2d_fysik_motor
             if (!a.IsStatic) a.Position -= correction * a.InverseMass;
             if (!b.IsStatic) b.Position += correction * b.InverseMass;
 
-            
+
+
+            // Kontrollera om det är en oval mot en box.
+            if (a.objectType != b.objectType)
+            {
+                PhysicsObject ellipse =
+                    a.objectType == ObjectType.Ball ? a : b;
+
+                PhysicsObject box =
+                    a.objectType == ObjectType.Box ? a : b;
+
+                // Om energin inte räcker börjar ovalen bromsas.
+                if (!RotationalDivider(ellipse, box, contactPoint))
+                {
+                    ApplyPivotSwing(ellipse,contactPoint, deltaTime);
+                }
+            }
 
             if (velocityAlongNormal >= 0f)
                 return;
@@ -552,6 +568,105 @@ namespace _2d_fysik_motor
 
             return tangent * tangentPosition + normal * ((normalA + normalB) * 0.5f);
         }
+
+        private void ApplyPivotSwing(
+    PhysicsObject body,
+    Vector2D contactPoint,
+    float deltaTime)
+        {
+            // Vektor från rotationspunkten till tyngdpunkten.
+            Vector2D r = body.Position - contactPoint;
+
+            float distance = r.Length();
+
+            if (distance < 0.0001f)
+                return;
+
+            // Tröghetsmoment runt rotationspunkten.
+            float pivotInertia =
+                body.Inertia + body.Mass * distance * distance;
+
+            if (pivotInertia <= 0f)
+                return;
+
+            // Gravitationens vridmoment runt kanten.
+            Vector2D gravityForce = Gravity * body.Mass;
+
+            float gravityTorque = Cross(r, gravityForce);
+
+            // Gravitationen accelererar rotationen.
+            float angularAcceleration =
+                gravityTorque / pivotInertia;
+
+            // Dämpning gör att svajningen gradvis avtar.
+            float damping = 1.2f;
+
+            angularAcceleration -=
+                body.AngularVelocity * damping;
+
+            // Ändring av vinkelhastigheten.
+            float deltaOmega = angularAcceleration * deltaTime;
+
+            body.AngularVelocity += deltaOmega;
+
+            // Ändra tyngdpunktens hastighet så att
+            // kontaktpunkten behåller samma hastighet.
+            body.Velocity += new Vector2D(
+                -deltaOmega * r.Y,
+                deltaOmega * r.X
+            );
+        }
+
+
+        private bool RotationalDivider(PhysicsObject rotatingBody, PhysicsObject obstacle,Vector2D contactPoint)
+        {
+            // 1. Vektor från rotationspunkten till tyngdpunkten.
+            Vector2D r = rotatingBody.Position - contactPoint;
+
+            float distance = r.Length();
+
+            if (distance < 0.0001f)
+                return true;
+
+            // 2. Tröghetsmoment runt rotationspunkten.
+            float Ip = rotatingBody.Inertia +
+                       rotatingBody.Mass * distance * distance;
+
+            if (Ip <= 0f)
+                return false;
+
+            // 3. Rörelsemängdsmoment runt rotationspunkten.
+            float Lp = rotatingBody.Inertia * rotatingBody.AngularVelocity + rotatingBody.Mass * Cross(r, rotatingBody.Velocity);
+
+            // 4. Tillgänglig rotationsenergi.
+            float rotationalEnergy = (Lp * Lp) / (2f * Ip);
+
+            // 5. Räkna ut gravitationens riktning.
+            float gravityMagnitude = Gravity.Length();
+
+            if (gravityMagnitude < 0.0001f)
+                return true;
+
+            Vector2D up = Gravity * (-1f / gravityMagnitude);
+
+            // 6. Höjdskillnaden till tyngdpunktens högsta läge.
+            float currentHeight = Vector2D.Dot(r, up);
+
+            float deltaHeight = distance - currentHeight;
+
+            deltaHeight = MathF.Max(0f, deltaHeight);
+
+            // 7. Energin som krävs för att nå högsta läget.
+            float requiredEnergy =
+                rotatingBody.Mass * gravityMagnitude * deltaHeight;
+
+            // 8. Kontrollera om energin räcker.
+            if (rotationalEnergy < requiredEnergy)
+                return false;
+
+            return true;
+        }
+
         private float GetEllipseRadiusInDirection(
     PhysicsObject body,
     Vector2D direction)

@@ -82,6 +82,7 @@ namespace _2d_fysik_motor
         public float AngularVelocity { get; set; } = 0f; // Hur snabbt objektet snurrar just nu
         public float Rotation { get; set; } = 0f;        // Objektets nuvarande vinkel i radianer
         public float InverseInertia { get; private set; } // Inversen av tröghetsmomentet för rotationsberäkningar.
+        public float Inertia =>InverseInertia > 0f ? 1f / InverseInertia : 0f;
 
 
         // Påverkar hur mycket kropparna bromsas mot varandra vid glidning.
