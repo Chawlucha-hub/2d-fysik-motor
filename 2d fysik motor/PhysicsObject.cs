@@ -1,232 +1,232 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Numerics;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using System;
 
-namespace _2d_fysik_motor
-{
-    // Anger vilken grundform en fysikkropp använder.
-    public enum ObjectType
-    {
-        Ball,
-        Box
+namespace _2d_fysik_motor;
+
+// Anger vilken grundform en fysikkropp använder.
+public enum ObjectType{
+    Ball,
+    Box
+}
+
+// Tvådimensionell vektor med de operationer som fysikberäkningarna behöver.
+public struct Vector2D{
+    // Komponenter längs världens X- och Y-axel.
+    public float X;
+    public float Y;
+
+    // Skapar en vektor med angivna komponenter.
+    public Vector2D(float x, float y){
+        X = x;
+        Y = y;
     }
 
-    // Tvådimensionell vektor med de operationer som fysikberäkningarna behöver.
-    public struct Vector2D
-    {
-        // Komponenter längs världens X- och Y-axel.
-        public float X;
-        public float Y;
-
-        // Skapar en vektor med angivna komponenter.
-        public Vector2D(float x, float y)
-        {
-            X = x;
-            Y = y;
-        }
-
-        // Grundläggande vektoroperationer som används av fysikberäkningarna.
-        public static Vector2D operator +(Vector2D a, Vector2D b) => new Vector2D(a.X + b.X, a.Y + b.Y);
-        public static Vector2D operator -(Vector2D a, Vector2D b) => new Vector2D(a.X - b.X, a.Y - b.Y);
-        public static Vector2D operator *(Vector2D a, float scalar) => new Vector2D(a.X * scalar, a.Y * scalar);
-        public static Vector2D operator /(Vector2D a, float scalar) { return new Vector2D(a.X / scalar, a.Y / scalar); }
-
-        // Beräknar vektorns längd.
-        public float Length()
-        {
-            return MathF.Sqrt(X * X + Y * Y);
-        }
-
-        // Returnerar en vektor med längden ett, eller nollvektorn om längden är noll.
-        public Vector2D Normalized()
-        {
-            float length = Length();
-
-            if (length == 0)
-            {
-                return Zero;
-            }
-            return this / length;
-        }
-
-        // Beräknar skalärprodukten mellan två vektorer.
-        public static float Dot(Vector2D a, Vector2D b)
-        {
-            return a.X * b.X + a.Y * b.Y;
-        }
-
-        // Nollvektorn.
-        public static Vector2D Zero => new Vector2D(0, 0);
+    // Grundläggande vektoroperationer som används av fysikberäkningarna.
+    public static Vector2D operator +(Vector2D a, Vector2D b) =>
+        new Vector2D(a.X + b.X, a.Y + b.Y);
+    public static Vector2D operator -(Vector2D a, Vector2D b) =>
+        new Vector2D(a.X - b.X, a.Y - b.Y);
+    public static Vector2D operator *(Vector2D a, float scalar) =>
+        new Vector2D(a.X * scalar, a.Y * scalar);
+    public static Vector2D operator /(Vector2D a, float scalar){
+        return new Vector2D(a.X / scalar, a.Y / scalar);
     }
 
-    // Representerar en kropp med fysikaliska egenskaper och rörelsetillstånd.
-    public class PhysicsObject
-    {
-        // Kroppens position, hastighet och krafter som ännu inte har integrerats.
-        public Vector2D Position;
-        public Vector2D Velocity;
-        public Vector2D ForceAccumulator;
+    // Beräknar vektorns längd.
+    public float Length(){
+        return MathF.Sqrt(X * X + Y * Y);
+    }
 
-        public float Mass { get; private set; }
-        public float InverseMass { get; private set; } // Statiska kroppar har invers massa noll.
-        public float Restitution { get; set; } = 0.8f; // 0 ger ingen studs och 1 ger full studs.
-        public bool IsStatic => InverseMass == 0f;     // Sant när kroppen inte påverkas av krafter.
-        public ObjectType objectType { get; set; }
-        public float? radius = 20f;
-        public float? width = 20f;
-        public float? height = 20f;
-        public float AngularVelocity { get; set; } = 0f; // Hur snabbt objektet snurrar just nu
-        public float Rotation { get; set; } = 0f;        // Objektets nuvarande vinkel i radianer
-        public float InverseInertia { get; private set; } // Inversen av tröghetsmomentet för rotationsberäkningar.
-        public float Inertia =>InverseInertia > 0f ? 1f / InverseInertia : 0f;
+    // Returnerar en vektor med längden ett, eller nollvektorn om
+    // längden är noll.
+    public Vector2D Normalized(){
+        float length = Length();
 
+        if (length == 0) return Zero;
+        return this / length;
+    }
 
-        // Påverkar hur mycket kropparna bromsas mot varandra vid glidning.
-        public float Friction { get; private set; }
+    // Beräknar skalärprodukten mellan två vektorer.
+    public static float Dot(Vector2D a, Vector2D b){
+        return a.X * b.X + a.Y * b.Y;
+    }
 
-        public float HalfWidth => width.GetValueOrDefault() / 2f;
-        public float HalfHeight => height.GetValueOrDefault() / 2f;
+    // Nollvektorn.
+    public static Vector2D Zero => new Vector2D(0, 0);
+}
 
+// Representerar en kropp med fysikaliska egenskaper och rörelsetillstånd.
+public class PhysicsObject{
+    // Kroppens position, hastighet och krafter som ännu inte har
+    // integrerats.
+    public Vector2D Position;
+    public Vector2D Velocity;
+    public Vector2D ForceAccumulator;
 
-        // Halvstorleken på kroppens rotationsjusterade, axelriktade omslutande låda.
-        public Vector2D BoundingRadius
-        {
-            get
-            {
-                float cos = MathF.Cos(Rotation);
-                float sin = MathF.Sin(Rotation);
-                return new Vector2D(
-                    MathF.Sqrt(HalfWidth * HalfWidth * cos * cos + HalfHeight * HalfHeight * sin * sin),
-                    MathF.Sqrt(HalfWidth * HalfWidth * sin * sin + HalfHeight * HalfHeight * cos * cos));
-            }
-        }
+    public float Mass { get; private set; }
+    // Statiska kroppar har invers massa noll.
+    public float InverseMass { get; private set; }
+    // 0 ger ingen studs och 1 ger full studs.
+    public float Restitution { get; set; } = 0.8f;
+    // Sant när kroppen inte påverkas av krafter.
+    public bool IsStatic => InverseMass == 0f;
+    public ObjectType objectType { get; set; }
+    public float? radius = 20f;
+    public float? width = 20f;
+    public float? height = 20f;
+    // Hur snabbt objektet snurrar just nu
+    public float AngularVelocity { get; set; } = 0f;
+    // Objektets nuvarande vinkel i radianer
+    public float Rotation { get; set; } = 0f;
+    // Inversen av tröghetsmomentet för rotationsberäkningar.
+    public float InverseInertia { get; private set; }
+    public float Inertia =>InverseInertia > 0f ? 1f / InverseInertia : 0f;
 
-        // Hämtar ellipsens fyra roterade ytterpunkter i världens koordinater.
-        public Vector2D[] GetEllipsePoints()
-        {
+    // Påverkar hur mycket kropparna bromsas mot varandra vid glidning.
+    public float Friction { get; private set; }
+
+    public float HalfWidth => width.GetValueOrDefault() / 2f;
+    public float HalfHeight => height.GetValueOrDefault() / 2f;
+
+    // Halvstorleken på kroppens rotationsjusterade, axelriktade omslutande
+    // låda.
+    public Vector2D BoundingRadius{
+        get{
             float cos = MathF.Cos(Rotation);
             float sin = MathF.Sin(Rotation);
-            Vector2D[] localPoints =
-            {
-                new Vector2D(0f, -HalfHeight),
-                new Vector2D(HalfWidth, 0f),
-                new Vector2D(0f, HalfHeight),
-                new Vector2D(-HalfWidth, 0f)
-            };
+            return new Vector2D(
+                    MathF.Sqrt(HalfWidth * HalfWidth * cos * cos +
+                        HalfHeight * HalfHeight * sin * sin),
+                    MathF.Sqrt(HalfWidth * HalfWidth * sin * sin +
+                        HalfHeight * HalfHeight * cos * cos)
+                    );
+        }
+    }
 
-            for (int i = 0; i < localPoints.Length; i++)
-            {
-                Vector2D point = localPoints[i];
-                localPoints[i] = Position + new Vector2D(
+    // Hämtar ellipsens fyra roterade ytterpunkter i världens koordinater.
+    public Vector2D[] GetEllipsePoints()
+    {
+        float cos = MathF.Cos(Rotation);
+        float sin = MathF.Sin(Rotation);
+        Vector2D[] localPoints = {
+            new Vector2D(0f, -HalfHeight),
+            new Vector2D(HalfWidth, 0f),
+            new Vector2D(0f, HalfHeight),
+            new Vector2D(-HalfWidth, 0f)
+        };
+
+        for (int i = 0; i < localPoints.Length; i++){
+            Vector2D point = localPoints[i];
+            localPoints[i] = Position + new Vector2D(
                     point.X * cos - point.Y * sin,
                     point.X * sin + point.Y * cos);
-            }
-
-            return localPoints;
         }
 
-        // Skapar kroppen, ställer in dess form och beräknar dess massa- och tröghetsdata.
-        public PhysicsObject(Vector2D position , float mass, float friction, float rotation, float? radius, float width, float height, ObjectType newObjectType)
-        {
-            Position = position;
-            objectType = newObjectType;
-            SetMass(mass);
-            Velocity = Vector2D.Zero;
-            ForceAccumulator = Vector2D.Zero;
-            float cos = MathF.Cos(rotation);
-            float sin = MathF.Sin(rotation);
+        return localPoints;
+    }
 
-            
-                this.Rotation = rotation;
+    // Skapar kroppen, ställer in dess form och beräknar dess
+    // massa- och tröghetsdata.
+    public PhysicsObject(Vector2D position , float mass, float friction,
+            float rotation, float? radius, float width,
+            float height, ObjectType newObjectType){
+        Position = position;
+        objectType = newObjectType;
+        SetMass(mass);
+        Velocity = Vector2D.Zero;
+        ForceAccumulator = Vector2D.Zero;
+        float cos = MathF.Cos(rotation);
+        float sin = MathF.Sin(rotation);
 
-            
+        this.Rotation = rotation;
 
-            if (newObjectType == ObjectType.Box)
-            {
-                this.height = height;
-                this.width = width;
-            }
-            else if(newObjectType == ObjectType.Ball)
-            {
-                this.width = width > 0f ? width : radius.GetValueOrDefault() * 2f;
-                this.height = height > 0f ? height : radius.GetValueOrDefault() * 2f;
-                this.radius = radius ?? MathF.Max(this.width.Value, this.height.Value) / 2f;
-            }
-
-            
-            SetFriction(friction);
-            UpdateInertia();
+        if (newObjectType == ObjectType.Box){
+            this.height = height;
+            this.width = width;
         }
-        public void SetFriction(float friction)
-        {
-            Friction = MathF.Max(0f, friction);
-        }
-        public void SetMass(float mass)
-        {
-            Mass = mass;
-            // Om massan är 0 räknas det som ett statiskt objekt med oändlig massa
-            InverseMass = (mass > 0f) ? 1f / mass : 0f;
-            UpdateInertia();
+        else if(newObjectType == ObjectType.Ball){
+            this.width = width > 0f
+                ? width
+                : radius.GetValueOrDefault() * 2f;
+            this.height = height > 0f
+                ? height
+                : radius.GetValueOrDefault() * 2f;
+            this.radius = radius ??
+                MathF.Max(this.width.Value, this.height.Value)/
+                2f;
         }
 
-        private void UpdateInertia()
-        {
-            if (Mass <= 0f)
-            {
-                InverseMass = 0f;
-                InverseInertia = 0f;
-                return;
-            }
+        SetFriction(friction);
+        UpdateInertia();
+    }
+    public void SetFriction(float friction){
+        Friction = MathF.Max(0f, friction);
+    }
 
-            InverseMass = 1f / Mass;
-            float inertia = 0f;
+    public void SetMass(float mass){
+        Mass = mass;
+        // Om massan är 0 räknas det som ett statiskt objekt med
+        // oändlig massa
+        InverseMass = (mass > 0f) ? 1f / mass : 0f;
+        UpdateInertia();
+    }
 
-            if (objectType == ObjectType.Ball)
-            {
-                float halfWidth = HalfWidth;
-                float halfHeight = HalfHeight;
-                inertia = Mass * (halfWidth * halfWidth + halfHeight * halfHeight) / 4f;
-            }
-            else if (objectType == ObjectType.Box)
-            {
-                float w = width.GetValueOrDefault();
-                float h = height.GetValueOrDefault();
-                inertia = Mass * (w * w + h * h) / 12f;
-            }
-
-            InverseInertia = inertia > 0f ? 1f / inertia : 0f;
+    private void UpdateInertia(){
+        if (Mass <= 0f){
+            InverseMass = 0f;
+            InverseInertia = 0f;
+            return;
         }
 
-        // Lägger till en kraft som används vid nästa uppdatering.
-        public void AddForce(Vector2D force)
-        {
-            if (IsStatic) return;
-            ForceAccumulator += force;
+        InverseMass = 1f / Mass;
+        float inertia = 0f;
+
+        if (objectType == ObjectType.Ball){
+            float halfWidth = HalfWidth;
+            float halfHeight = HalfHeight;
+            inertia = Mass *
+                (halfWidth * halfWidth +
+                 halfHeight * halfHeight) /
+                4f;
+        }
+        else if (objectType == ObjectType.Box){
+            float w = width.GetValueOrDefault();
+            float h = height.GetValueOrDefault();
+            inertia = Mass * (w * w + h * h) / 12f;
         }
 
-        // Integrerar hastighet, position och rotation och nollställer sedan kraftsumman.
-        public void Update(float deltaTime)
-        {
-            if (IsStatic) return;
+        InverseInertia = inertia > 0f ? 1f / inertia : 0f;
+    }
 
-            // F = m * a  =>  a = F / m  =>  a = F * InvMass
-            Vector2D acceleration = ForceAccumulator * InverseMass;
+    // Lägger till en kraft som används vid nästa uppdatering.
+    public void AddForce(Vector2D force){
+        if (IsStatic) return;
+        ForceAccumulator += force;
+    }
 
-            // Integrera hastighet: v = v + a * dt
-            Velocity += acceleration * deltaTime;
+    // Integrerar hastighet, position och rotation och nollställer sedan
+    // kraftsumman.
+    public void Update(float deltaTime){
+        if (IsStatic) return;
 
-            // Integrera position: p = p + v * dt
-            Position += Velocity * deltaTime;
+        // F = m * a  =>  a = F / m  =>  a = F * InvMass
+        Vector2D acceleration = ForceAccumulator * InverseMass;
 
-            // rotation
-            Rotation += AngularVelocity * deltaTime;
+        // Integrera hastighet: v = v + a * dt
+        Velocity += acceleration * deltaTime;
 
-            // Nollställ krafter inför nästa bildruta
-            ForceAccumulator = Vector2D.Zero;
-        }
+        // Integrera position: p = p + v * dt
+        Position += Velocity * deltaTime;
+
+        // rotation
+        Rotation += AngularVelocity * deltaTime;
+
+        // Nollställ krafter inför nästa bildruta
+        ForceAccumulator = Vector2D.Zero;
     }
 }
